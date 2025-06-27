@@ -12,7 +12,7 @@
     },
     "sshPublicKey": {
       "type": "string",
-      "defaultValue": "--- INCLUDE YOUR SSH PUBLIC KEY HERE ---"
+      "defaultValue": "---INCLUDE SSH PUBLIC KEY HERE---"
     }
   },
   "variables": {
@@ -83,6 +83,19 @@
               "sourcePortRange": "*",
               "destinationAddressPrefix": "*",
               "destinationPortRange": "28081"
+            }
+          },
+          {
+            "name": "Port8080",
+            "properties": {
+              "priority": 1004,
+              "protocol": "TCP",
+              "access": "Allow",
+              "direction": "Inbound",
+              "sourceAddressPrefix": "*",
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "*",
+              "destinationPortRange": "8080"
             }
           }
         ]
