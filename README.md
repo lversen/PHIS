@@ -50,13 +50,60 @@ This installation process uses several automated scripts to simplify deployment:
 
 Before starting, ensure you have:
 - Azure subscription with appropriate permissions
-- Azure CLI installed locally, or access to Azure Cloud Shell
+- **Windows:** PowerShell with Azure PowerShell module (Az) OR Azure CLI
+- **Linux:** Azure CLI OR PowerShell 7+ with Azure PowerShell module (Az)
 - SSH key pair for secure VM access
 - Basic knowledge of Linux command line
+
+### Azure Management Setup
+
+#### Windows Users (Recommended: PowerShell)
+
+```powershell
+# Install Azure PowerShell module (run as Administrator)
+Install-Module -Name Az -Repository PSGallery -Force -AllowClobber
+
+# Or update if already installed
+Update-Module -Name Az
+```
+
+#### Linux Users (Recommended: Azure CLI)
+
+```bash
+# Install Azure CLI (Ubuntu/Debian)
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+# Or for other distributions, see: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
+```
+
+#### Alternative: PowerShell on Linux
+
+```bash
+# Install PowerShell 7+ on Linux (Ubuntu/Debian)
+wget -q https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb
+sudo dpkg -i packages-microsoft-prod.deb
+sudo apt-get update
+sudo apt-get install -y powershell
+
+# Then install Azure module
+pwsh -c "Install-Module -Name Az -Repository PSGallery -Force"
+```
 
 ### Generate SSH Key (if needed)
 
 If you don't have an SSH key pair:
+
+#### Windows Users
+
+```powershell
+# Generate new SSH key pair (Windows 10/11 with OpenSSH)
+ssh-keygen -t rsa -b 4096 -C "your-email@example.com"
+
+# Display public key (copy this for the template)
+Get-Content ~/.ssh/id_rsa.pub
+```
+
+#### Linux Users
 
 ```bash
 # Generate new SSH key pair
@@ -70,8 +117,8 @@ cat ~/.ssh/id_ed25519.pub
 
 ### 1.1 Prepare the Template
 
-1. Download or clone this repository
-2. Open `template-vm.json` 
+1. Download or clone this repository to your local machine
+2. Open `template-vm.json` in your preferred editor
 3. Replace the SSH public key placeholder:
    ```json
    "sshPublicKey": {
@@ -81,7 +128,28 @@ cat ~/.ssh/id_ed25519.pub
    ```
    With your actual SSH public key.
 
-### 1.2 Deploy Using Azure CLI
+### 1.2 Deploy Using PowerShell (Windows/Linux)
+
+```powershell
+# Install Azure PowerShell module if not already installed
+Install-Module -Name Az -Repository PSGallery -Force
+
+# Login to Azure
+Connect-AzAccount
+
+# Create resource group
+New-AzResourceGroup -Name "RG-PHIS" -Location "West Europe"
+
+# Deploy the template
+New-AzResourceGroupDeployment `
+  -ResourceGroupName "RG-PHIS" `
+  -TemplateFile "template-vm.json" `
+  -vmName "phis" `
+  -adminUsername "azureuser" `
+  -sshPublicKey "YOUR_SSH_PUBLIC_KEY"
+```
+
+### 1.3 Deploy Using Azure CLI (Linux/Windows)
 
 ```bash
 # Login to Azure
@@ -97,7 +165,7 @@ az deployment group create \
   --parameters vmName=phis adminUsername=azureuser sshPublicKey="YOUR_SSH_PUBLIC_KEY"
 ```
 
-### 1.3 Deploy Using Azure Portal
+### 1.4 Deploy Using Azure Portal (Alternative)
 
 1. Navigate to [Azure Portal](https://portal.azure.com)
 2. Search for "Deploy a custom template"
@@ -107,10 +175,17 @@ az deployment group create \
 6. Click "Save" then "Review + create"
 7. Fill in the parameters and deploy
 
-### 1.4 Get VM Public IP
+### 1.5 Get VM Public IP
 
 After deployment completes:
 
+**Using PowerShell:**
+```powershell
+# Get the public IP address
+(Get-AzPublicIpAddress -ResourceGroupName "RG-PHIS" -Name "phis-ip").IpAddress
+```
+
+**Using Azure CLI:**
 ```bash
 # Get the public IP address
 az vm show -d -g RG-PHIS -n phis --query publicIps -o tsv
@@ -120,16 +195,25 @@ Or check in the Azure Portal under the VM's overview page.
 
 ## Step 2: Connect to VM
 
-Connect to your newly created VM:
+Connect to your newly created Linux VM:
+
+#### From Windows
+
+```powershell
+# Connect via SSH from PowerShell (Windows 10/11 has built-in SSH)
+ssh azureuser@YOUR_VM_PUBLIC_IP
+```
+
+#### From Linux
 
 ```bash
-# Replace with your VM's public IP
+# Connect via SSH
 ssh azureuser@YOUR_VM_PUBLIC_IP
 ```
 
 If connection fails, verify:
 - VM is running
-- Network Security Group allows SSH (port 22)
+- Network Security Group allows SSH (port 22)  
 - SSH key is correct
 
 ## Step 3: Install Dependencies
@@ -138,12 +222,15 @@ Once connected to the VM, install all required dependencies:
 
 ### 3.1 Download the Dependencies Script
 
+Once connected to the Linux VM:
+
 ```bash
 # Download the dependencies installation script
 wget https://raw.githubusercontent.com/lversen/PHIS/main/openSILEX-dependencies.sh
 
-# Or if you have the file locally, copy it to the VM:
-# scp openSILEX-dependencies.sh azureuser@YOUR_VM_IP:~/
+# Or copy from your local machine to the VM:
+# From Windows PowerShell: scp openSILEX-dependencies.sh azureuser@YOUR_VM_IP:~/
+# From Linux: scp openSILEX-dependencies.sh azureuser@YOUR_VM_IP:~/
 ```
 
 ### 3.2 Run Dependencies Installation
@@ -166,13 +253,13 @@ This script will:
 
 ### 3.3 Apply Group Changes
 
-**Important:** After the dependencies script completes, you must log out and back in:
+**Important:** After the dependencies script completes, you must log out and back in to the Linux VM:
 
 ```bash
-# Logout
+# Logout from the Linux VM
 exit
 
-# Reconnect to apply Docker group changes
+# Reconnect from your local machine to apply Docker group changes
 ssh azureuser@YOUR_VM_PUBLIC_IP
 ```
 
@@ -187,12 +274,15 @@ docker run --rm hello-world
 
 ### 4.1 Download the PHIS Installer
 
+Once connected to the Linux VM:
+
 ```bash
 # Download the PHIS installation script
 wget https://raw.githubusercontent.com/lversen/PHIS/main/openSILEX-installer.sh
 
-# Or copy from local machine:
-# scp openSILEX-installer.sh azureuser@YOUR_VM_IP:~/
+# Or copy from your local machine to the VM:
+# From Windows PowerShell: scp openSILEX-installer.sh azureuser@YOUR_VM_IP:~/
+# From Linux: scp openSILEX-installer.sh azureuser@YOUR_VM_IP:~/
 ```
 
 ### 4.2 Run PHIS Installation
@@ -254,17 +344,19 @@ For development work with VS Code:
 
 ### 5.1 VS Code Remote Development
 
-1. Install VS Code locally with extensions:
+#### Setup for Windows/Linux
+
+1. Install VS Code on your local machine with extensions:
    - Remote - SSH
    - Dev Containers
 
-2. Connect to VM via Remote-SSH:
-   - Open VS Code
+2. Connect to Linux VM via Remote-SSH:
+   - Open VS Code on your local machine
    - Press `Ctrl+Shift+P`
    - Type "Remote-SSH: Connect to Host"
    - Enter `azureuser@YOUR_VM_IP`
 
-3. Open project folder:
+3. Open project folder on the Linux VM:
    - Navigate to `/home/azureuser/opensilex-docker-compose`
 
 4. Use Dev Containers:
@@ -294,6 +386,24 @@ sudo docker compose --env-file opensilex.env up -d
 - Verify Network Security Group rules allow SSH (port 22)
 - Confirm SSH key is correct
 
+**Check VM status with PowerShell:**
+```powershell
+# Check VM status
+Get-AzVM -ResourceGroupName "RG-PHIS" -Name "phis" -Status
+
+# Start VM if stopped
+Start-AzVM -ResourceGroupName "RG-PHIS" -Name "phis"
+```
+
+**Check VM status with Azure CLI:**
+```bash
+# Check VM status
+az vm get-instance-view --resource-group RG-PHIS --name phis --query instanceView.statuses
+
+# Start VM if stopped
+az vm start --resource-group RG-PHIS --name phis
+```
+
 #### 2. Docker Permission Denied
 ```bash
 # Fix Docker socket permissions
@@ -318,8 +428,18 @@ sudo docker logs opensilex-docker-opensilexapp --tail=100
 
 # Check port 28081 is open
 sudo netstat -tlnp | grep 28081
+```
 
-# Verify Azure NSG allows port 28081
+**Verify Azure NSG allows port 28081 with PowerShell:**
+```powershell
+# Check Network Security Group rules
+Get-AzNetworkSecurityGroup -ResourceGroupName "RG-PHIS" -Name "phis-nsg" | Get-AzNetworkSecurityRuleConfig
+```
+
+**Verify Azure NSG with Azure CLI:**
+```bash
+# Check NSG rules
+az network nsg rule list --resource-group RG-PHIS --nsg-name phis-nsg --output table
 ```
 
 #### 4. Installation Fails
