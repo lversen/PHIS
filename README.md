@@ -60,10 +60,10 @@ If you don't have an SSH key pair:
 
 ```bash
 # Generate new SSH key pair
-ssh-keygen -t rsa -b 4096 -C "your-email@example.com"
+ssh-keygen -t ed25519 -a 100 
 
 # Display public key (copy this for the template)
-cat ~/.ssh/id_rsa.pub
+cat ~/.ssh/id_ed25519.pub
 ```
 
 ## Step 1: Deploy Azure VM
@@ -140,7 +140,7 @@ Once connected to the VM, install all required dependencies:
 
 ```bash
 # Download the dependencies installation script
-wget https://raw.githubusercontent.com/YOUR_REPO/main/openSILEX-dependencies.sh
+wget https://raw.githubusercontent.com/lversen/PHIS/main/openSILEX-dependencies.sh
 
 # Or if you have the file locally, copy it to the VM:
 # scp openSILEX-dependencies.sh azureuser@YOUR_VM_IP:~/
@@ -189,7 +189,7 @@ docker run --rm hello-world
 
 ```bash
 # Download the PHIS installation script
-wget https://raw.githubusercontent.com/YOUR_REPO/main/openSILEX-installer.sh
+wget https://raw.githubusercontent.com/lversen/PHIS/main/openSILEX-installer.sh
 
 # Or copy from local machine:
 # scp openSILEX-installer.sh azureuser@YOUR_VM_IP:~/
