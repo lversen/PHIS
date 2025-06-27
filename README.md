@@ -1,6 +1,6 @@
-# PHIS Installation Guide
+# OpenSILEX Installation Guide
 
-Implementation of PHIS using OpenSILEX with complete Azure deployment and setup instructions.
+Complete Azure deployment and setup instructions for OpenSILEX scientific data management platform.
 
 ## Table of Contents
 - [Overview](#overview)
@@ -9,42 +9,44 @@ Implementation of PHIS using OpenSILEX with complete Azure deployment and setup 
 - [Step 1: Deploy Azure VM](#step-1-deploy-azure-vm)
 - [Step 2: Connect to VM](#step-2-connect-to-vm)
 - [Step 3: Install Dependencies](#step-3-install-dependencies)
-- [Step 4: Install PHIS](#step-4-install-phis)
-- [Step 5: Access PHIS](#step-5-access-phis)
+- [Step 4: Install OpenSILEX](#step-4-install-opensilex)
+- [Step 5: Access OpenSILEX](#step-5-access-opensilex)
+- [Management Commands](#management-commands)
 - [Development Setup (Optional)](#development-setup-optional)
 - [Troubleshooting](#troubleshooting)
 
 ## Overview
 
-PHIS is implemented using OpenSILEX and deployed on Azure infrastructure. This guide walks you through:
+OpenSILEX is an open-source scientific platform for managing agricultural and plant science research data. This guide walks you through:
 1. Creating an Azure VM using ARM templates
-2. Installing all required dependencies
-3. Setting up OpenSILEX with PHIS theme configuration
-4. Accessing the running application
+2. Installing all required dependencies (Java, Docker, MongoDB, RDF4J)
+3. Setting up OpenSILEX with proper configuration
+4. Managing the running application
 
 ## Script Descriptions
 
 This installation process uses several automated scripts to simplify deployment:
 
-### `template-vm.json` - Azure VM Template
+### `vm-template.json` - Azure VM Template
 - **Purpose**: Azure Resource Manager (ARM) template that creates the complete VM infrastructure
 - **What it creates**: Virtual machine, network security group, virtual network, public IP, and network interface
-- **Configuration**: Debian 12 VM with Standard_B2as_v2 size, SSH access, and ports 22, 80, and 28081 open
-- **Security**: Uses SSH key authentication and trusted launch with secure boot enabled
+- **Configuration**: Debian 12 VM with Standard_B2as_v2 size (2 vCPUs, 4GB RAM), SSH access
+- **Security**: Uses SSH key authentication, trusted launch with secure boot, ports 22, 80, 8080, and 28081 open
+- **Location**: Deployed in West Europe with availability zone support
 
-### `openSILEX-dependencies.sh` - System Dependencies Installer
-- **Purpose**: Prepares the Debian system with all required software and configurations
-- **Key installations**: Git, Docker, Docker Compose, and optionally VS Code
-- **Configurations**: Adds user to docker group, fixes permissions, sets up development workspace
-- **Safety features**: Includes error handling, privilege checks, and colored output for better user experience
-- **Development support**: Configures VS Code Remote-SSH and Dev Containers for remote development
+### `setup-opensilex.sh` - System Dependencies and Application Installer
+- **Purpose**: Comprehensive installer that prepares the system and installs OpenSILEX
+- **Key installations**: Java JDK 17, Docker, Docker Compose, MongoDB, RDF4J, Nginx, OpenSILEX
+- **Configurations**: Sets up Docker containers, configures systemd service, creates user directories
+- **Security features**: Runs as non-root user, configures proper permissions, sets up reverse proxy
+- **Java compatibility**: Includes Java 17 compatibility flags for legacy Tomcat components
 
-### `openSILEX-installer.sh` - PHIS Application Installer  
-- **Purpose**: Downloads, configures, and deploys OpenSILEX with PHIS theme customizations
-- **Key actions**: Clones OpenSILEX repository (v1.4.7), configures PHIS theme settings, builds containers
-- **PHIS customizations**: Sets application name, path prefix (/phis), and custom UI components
-- **User management**: Creates default admin user account with credentials
-- **Monitoring**: Waits up to 180 seconds for application startup and provides status feedback
+### `run-opensilex.sh` - OpenSILEX Management Script
+- **Purpose**: Complete management interface for OpenSILEX operations
+- **Key functions**: Start/stop services, view logs, manage containers, run OpenSILEX commands
+- **Service management**: Controls systemd service and Docker containers
+- **Monitoring**: Provides status checks, log viewing, and diagnostic information
+- **User management**: Includes commands for creating users and system initialization
 
 ## Prerequisites
 
@@ -98,6 +100,7 @@ If you don't have an SSH key pair:
 ```powershell
 # Generate new SSH key pair (Windows 10/11 with OpenSSH)
 ssh-keygen -t ed25519 -a 100
+
 # Display public key (copy this for the template)
 Get-Content ~/.ssh/id_ed25519.pub
 ```
@@ -117,12 +120,12 @@ cat ~/.ssh/id_ed25519.pub
 ### 1.1 Prepare the Template
 
 1. Download or clone this repository to your local machine
-2. Open `template-vm.json` in your preferred editor
-3. Replace the SSH public key placeholder:
+2. Open `vm-template.json` in your preferred editor
+3. Replace the SSH public key parameter:
    ```json
    "sshPublicKey": {
      "type": "string",
-     "defaultValue": "--- INCLUDE YOUR SSH PUBLIC KEY HERE ---"
+     "defaultValue": "ssh-ed25519 AAAAC3... your-email@example.com"
    }
    ```
    With your actual SSH public key.
@@ -142,7 +145,7 @@ New-AzResourceGroup -Name "RG-PHIS" -Location "West Europe"
 # Deploy the template
 New-AzResourceGroupDeployment `
   -ResourceGroupName "RG-PHIS" `
-  -TemplateFile "template-vm.json" `
+  -TemplateFile "vm-template.json" `
   -vmName "phis" `
   -adminUsername "azureuser" `
   -sshPublicKey "YOUR_SSH_PUBLIC_KEY"
@@ -160,7 +163,7 @@ az group create --name RG-PHIS --location westeurope
 # Deploy the template
 az deployment group create \
   --resource-group RG-PHIS \
-  --template-file template-vm.json \
+  --template-file vm-template.json \
   --parameters vmName=phis adminUsername=azureuser sshPublicKey="YOUR_SSH_PUBLIC_KEY"
 ```
 
@@ -169,7 +172,7 @@ az deployment group create \
 1. Navigate to [Azure Portal](https://portal.azure.com)
 2. Search for "Deploy a custom template"
 3. Click "Build your own template in the editor"
-4. Copy and paste the contents of `template-vm.json`
+4. Copy and paste the contents of `vm-template.json`
 5. Update the SSH public key in the template
 6. Click "Save" then "Review + create"
 7. Fill in the parameters and deploy
@@ -217,111 +220,115 @@ If connection fails, verify:
 
 ## Step 3: Install Dependencies
 
-Once connected to the VM, install all required dependencies:
+### 3.1 Download the Setup Script
 
-### 3.1 Download the Dependencies Script
-
-Once connected to the Linux VM:
+Once connected to the VM:
 
 ```bash
-# Download the dependencies installation script
-wget https://raw.githubusercontent.com/lversen/PHIS/main/openSILEX-dependencies.sh
+# Download the setup script
+wget https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/setup-opensilex.sh
 
 # Or copy from your local machine to the VM:
-# From Windows PowerShell: scp openSILEX-dependencies.sh azureuser@YOUR_VM_IP:~/
-# From Linux: scp openSILEX-dependencies.sh azureuser@YOUR_VM_IP:~/
+# From Windows PowerShell: scp setup-opensilex.sh azureuser@YOUR_VM_IP:~/
+# From Linux: scp setup-opensilex.sh azureuser@YOUR_VM_IP:~/
 ```
 
-### 3.2 Run Dependencies Installation
+### 3.2 Run the Installation
 
 ```bash
 # Make script executable
-chmod +x openSILEX-dependencies.sh
+chmod +x setup-opensilex.sh
 
 # Run the installation script
-./openSILEX-dependencies.sh
+./setup-opensilex.sh
 ```
 
 This script will:
 - Update system packages
-- Install Git
+- Install Java JDK 17 with compatibility flags
 - Install Docker and Docker Compose
-- Configure Docker permissions
-- Optionally install VS Code for development
-- Set up development workspace
+- Set up MongoDB and RDF4J containers
+- Download and configure OpenSILEX
+- Configure Nginx reverse proxy
+- Create systemd service for OpenSILEX
+- Set up user directories and permissions
 
 ### 3.3 Apply Group Changes
 
-**Important:** After the dependencies script completes, you must log out and back in to the Linux VM:
+**Important:** After the setup script completes, you must log out and back in to apply Docker group changes:
 
 ```bash
-# Logout from the Linux VM
+# Logout from the VM
 exit
 
-# Reconnect from your local machine to apply Docker group changes
+# Reconnect from your local machine
 ssh azureuser@YOUR_VM_PUBLIC_IP
 ```
 
-### 3.4 Verify Docker Installation
+### 3.4 Verify Installation
 
 ```bash
 # Test Docker installation
 docker run --rm hello-world
+
+# Check Java version
+java --version
+
+# Verify OpenSILEX files
+ls -la ~/opensilex/
 ```
 
-## Step 4: Install PHIS
+## Step 4: Install OpenSILEX
 
-### 4.1 Download the PHIS Installer
-
-Once connected to the Linux VM:
+### 4.1 Download the Management Script
 
 ```bash
-# Download the PHIS installation script
-wget https://raw.githubusercontent.com/lversen/PHIS/main/openSILEX-installer.sh
+# Download the management script
+wget https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/run-opensilex.sh
 
-# Or copy from your local machine to the VM:
-# From Windows PowerShell: scp openSILEX-installer.sh azureuser@YOUR_VM_IP:~/
-# From Linux: scp openSILEX-installer.sh azureuser@YOUR_VM_IP:~/
+# Make it executable
+chmod +x run-opensilex.sh
 ```
 
-### 4.2 Run PHIS Installation
+### 4.2 Initialize OpenSILEX
 
 ```bash
-# Make script executable
-chmod +x openSILEX-installer.sh
-
-# Run the installation
-./openSILEX-installer.sh
+# Initialize the system (first time setup)
+./run-opensilex.sh init
 ```
 
-The installer will:
-- Clone OpenSILEX Docker Compose repository (version 1.4.7)
-- Configure environment variables for PHIS theme
-- Set up proper permissions
-- Build and start all containers
-- Create admin user account
-- Display access information
+The initialization will:
+- Start MongoDB and RDF4J containers
+- Install the OpenSILEX system
+- Create database schemas
+- Set up default admin user
 
-### 4.3 Monitor Installation Progress
+### 4.3 Start the Service
 
-The script will show progress and wait up to 180 seconds for OpenSILEX to start. You'll see output like:
-
-```
-Waiting for OpenSilex to start (up to 180s)...
-✅ OpenSilex with Phis theme is running at http://YOUR_VM_IP:28081/phis/app
-Default login: admin@opensilex.org / admin
-🎨 Theme: Phis (configured with custom components)
-✅ Admin user 'admin@opensilex.org' created successfully.
+```bash
+# Start OpenSILEX service
+./run-opensilex.sh start
 ```
 
-## Step 5: Access PHIS
+### 4.4 Monitor Installation Progress
+
+```bash
+# Check service status
+./run-opensilex.sh status
+
+# View service logs
+./run-opensilex.sh logs service
+```
+
+## Step 5: Access OpenSILEX
 
 ### 5.1 Application URLs
 
-Once installation completes, access PHIS at:
+Once installation completes, access OpenSILEX at:
 
-- **Main Application:** `http://YOUR_VM_IP:28081/phis/app`
-- **API Documentation:** `http://YOUR_VM_IP:28081/phis/api-docs`
+- **Main Application:** `http://YOUR_VM_IP/` (via Nginx reverse proxy)
+- **Direct Access:** `http://YOUR_VM_IP:28081`
+- **RDF4J Workbench:** `http://YOUR_VM_IP:8080/rdf4j-workbench`
 
 ### 5.2 Default Credentials
 
@@ -333,47 +340,96 @@ Once installation completes, access PHIS at:
 ### 5.3 Verify Installation
 
 1. Open your web browser
-2. Navigate to `http://YOUR_VM_IP:28081/phis/app`
+2. Navigate to `http://YOUR_VM_IP/`
 3. Log in with default credentials
-4. Verify PHIS theme is applied correctly
+4. Verify OpenSILEX interface loads correctly
+
+## Management Commands
+
+The `run-opensilex.sh` script provides comprehensive management capabilities:
+
+### Service Management
+
+```bash
+# Start OpenSILEX service and containers
+./run-opensilex.sh start
+
+# Stop OpenSILEX service
+./run-opensilex.sh stop
+
+# Restart OpenSILEX service
+./run-opensilex.sh restart
+
+# Show detailed status information
+./run-opensilex.sh status
+```
+
+### Container Management
+
+```bash
+# Start Docker containers only
+./run-opensilex.sh containers start
+
+# Stop Docker containers
+./run-opensilex.sh containers stop
+
+# Check container status
+./run-opensilex.sh containers status
+```
+
+### Log Management
+
+```bash
+# View systemd service logs (real-time)
+./run-opensilex.sh logs service
+
+# View application logs
+./run-opensilex.sh logs app
+
+# View Docker container logs
+./run-opensilex.sh logs docker
+```
+
+### OpenSILEX Commands
+
+```bash
+# List all users
+./run-opensilex.sh cmd user list
+
+# Add new admin user
+./run-opensilex.sh cmd user add --admin
+
+# Reset ontologies
+./run-opensilex.sh cmd sparql reset-ontologies
+
+# Show help for available commands
+./run-opensilex.sh cmd help
+```
 
 ## Development Setup (Optional)
 
-For development work with VS Code:
+For development work, you can set up a more flexible environment:
 
-### 5.1 VS Code Remote Development
+### Local Development with VS Code
 
-#### Setup for Windows/Linux
+1. Install VS Code with Remote-SSH extension
+2. Connect to the VM via Remote-SSH
+3. Open the OpenSILEX directory: `/home/azureuser/opensilex/`
 
-1. Install VS Code on your local machine with extensions:
-   - Remote - SSH
-   - Dev Containers
-
-2. Connect to Linux VM via Remote-SSH:
-   - Open VS Code on your local machine
-   - Press `Ctrl+Shift+P`
-   - Type "Remote-SSH: Connect to Host"
-   - Enter `azureuser@YOUR_VM_IP`
-
-3. Open project folder on the Linux VM:
-   - Navigate to `/home/azureuser/opensilex-docker-compose`
-
-4. Use Dev Containers:
-   - Press `Ctrl+Shift+P`
-   - Type "Dev Containers: Reopen in Container"
-
-### 5.2 Manual Development Setup
+### Manual Development Commands
 
 ```bash
-# Navigate to project directory
-cd ~/opensilex-docker-compose
+# Navigate to OpenSILEX directory
+cd ~/opensilex/bin
 
-# View logs
-sudo docker logs opensilex-docker-opensilexapp --tail=50
+# Run OpenSILEX commands directly
+./opensilex.sh help
 
-# Restart containers if needed
-sudo docker compose --env-file opensilex.env down
-sudo docker compose --env-file opensilex.env up -d
+# View configuration
+cat ~/opensilex/config/opensilex.yml
+
+# Monitor application logs
+tail -f ~/opensilex/logs/*.log
 ```
 
 ## Troubleshooting
@@ -381,9 +437,6 @@ sudo docker compose --env-file opensilex.env up -d
 ### Common Issues
 
 #### 1. Cannot Connect to VM
-- Check VM is running in Azure Portal
-- Verify Network Security Group rules allow SSH (port 22)
-- Confirm SSH key is correct
 
 **Check VM status with PowerShell:**
 ```powershell
@@ -403,7 +456,8 @@ az vm get-instance-view --resource-group RG-PHIS --name phis --query instanceVie
 az vm start --resource-group RG-PHIS --name phis
 ```
 
-#### 2. Docker Permission Denied
+#### 2. Docker Permission Issues
+
 ```bash
 # Fix Docker socket permissions
 sudo chmod 666 /var/run/docker.sock
@@ -417,19 +471,23 @@ exit
 # Reconnect via SSH
 ```
 
-#### 3. PHIS Not Accessible
+#### 3. OpenSILEX Not Accessible
+
 ```bash
-# Check container status
-sudo docker ps
+# Check all container status
+./run-opensilex.sh status
 
-# View OpenSILEX logs
-sudo docker logs opensilex-docker-opensilexapp --tail=100
+# View OpenSILEX service logs
+./run-opensilex.sh logs service
 
-# Check port 28081 is open
+# Check if port is listening
 sudo netstat -tlnp | grep 28081
+
+# Restart everything
+./run-opensilex.sh restart
 ```
 
-**Verify Azure NSG allows port 28081 with PowerShell:**
+**Verify Azure NSG allows required ports with PowerShell:**
 ```powershell
 # Check Network Security Group rules
 Get-AzNetworkSecurityGroup -ResourceGroupName "RG-PHIS" -Name "phis-nsg" | Get-AzNetworkSecurityRuleConfig
@@ -441,65 +499,130 @@ Get-AzNetworkSecurityGroup -ResourceGroupName "RG-PHIS" -Name "phis-nsg" | Get-A
 az network nsg rule list --resource-group RG-PHIS --nsg-name phis-nsg --output table
 ```
 
-#### 4. Installation Fails
+#### 4. Service Startup Issues
+
 ```bash
-# Clean up and retry
-cd ~/opensilex-docker-compose
-sudo docker compose --env-file opensilex.env down
-sudo docker system prune -f
-./openSILEX-installer.sh
+# Check Java compatibility
+java --version
+
+# Verify configuration
+./run-opensilex.sh cmd system check
+
+# Clean restart
+./run-opensilex.sh stop
+docker system prune -f
+./run-opensilex.sh start
+```
+
+#### 5. Database Connection Issues
+
+```bash
+# Check MongoDB container
+docker logs mongo_opensilex
+
+# Check RDF4J container
+docker logs rdf4j_opensilex
+
+# Restart database containers
+./run-opensilex.sh containers stop
+./run-opensilex.sh containers start
+```
+
+### System Information Commands
+
+```bash
+# Check system resources
+df -h                    # Disk usage
+free -h                  # Memory usage
+htop                     # Process monitor
+
+# Check Docker status
+docker ps -a            # All containers
+docker images           # Available images
+docker system df        # Docker disk usage
+
+# Check network
+ss -tlnp | grep -E ':80|:8080|:28081'  # Listening ports
+curl -I http://localhost:28081         # Test local connection
 ```
 
 ### Log Locations
 
-- **OpenSILEX Logs:** `sudo docker logs opensilex-docker-opensilexapp`
-- **MongoDB Logs:** `sudo docker logs opensilex-docker-mongodb`
-- **Container Status:** `sudo docker ps -a`
+- **OpenSILEX Service:** `sudo journalctl -u opensilex -f`
+- **OpenSILEX Application:** `~/opensilex/logs/`
+- **MongoDB:** `docker logs mongo_opensilex`
+- **RDF4J:** `docker logs rdf4j_opensilex`
+- **Nginx:** `/var/log/nginx/`
+
+### Configuration Files
+
+- **OpenSILEX Config:** `~/opensilex/config/opensilex.yml`
+- **Systemd Service:** `/etc/systemd/system/opensilex.service`
+- **Nginx Config:** `/etc/nginx/sites-enabled/default`
+
+### Performance Tuning
+
+For production environments:
+
+```bash
+# Increase Java heap size (edit systemd service)
+sudo nano /etc/systemd/system/opensilex.service
+# Add: -Xms2g -Xmx4g to ExecStart line
+
+# Restart after changes
+sudo systemctl daemon-reload
+sudo systemctl restart opensilex
+```
 
 ### Getting Help
 
 If you encounter issues:
 
 1. Check the troubleshooting section above
-2. Review container logs for error messages
+2. Review service and application logs
 3. Verify all prerequisites are met
 4. Ensure Azure resources are properly configured
+5. Check OpenSILEX documentation at https://opensilex.org/
 
-### Useful Commands
+### Useful Maintenance Commands
 
 ```bash
-# View all containers
-sudo docker ps -a
+# Complete system restart
+./run-opensilex.sh stop
+sudo reboot
 
-# Restart PHIS
-cd ~/opensilex-docker-compose
-sudo docker compose --env-file opensilex.env restart
+# After reboot, start services
+./run-opensilex.sh start
 
-# View configuration
-cat ~/opensilex-docker-compose/opensilex.env
+# Update system packages
+sudo apt update && sudo apt upgrade -y
 
-# Check disk space
-df -h
+# Clean up Docker resources
+docker system prune -f
 
-# Check memory usage
-free -h
+# Backup configuration
+tar -czf opensilex-backup-$(date +%Y%m%d).tar.gz ~/opensilex/config/ ~/opensilex/data/
 ```
 
-## Configuration Details
+## System Architecture
 
-The PHIS installation includes these customizations:
+The OpenSILEX deployment includes:
 
-- **Application Name:** Phis
-- **Theme:** opensilex-phis#phis
-- **Path Prefix:** /phis
-- **Custom Components:**
-  - Login: opensilex-phis-PhisLoginComponent
-  - Header: opensilex-phis-PhisHeaderComponent
-  - Footer: opensilex-DefaultFooterComponent
-  - Menu: opensilex-DefaultMenuComponent
+- **OpenSILEX Application**: Java-based web application (port 28081)
+- **MongoDB**: Document database for application data (port 27017)
+- **RDF4J**: Triple store for semantic data (port 8080)
+- **Nginx**: Reverse proxy for web access (port 80)
+- **Systemd Service**: Manages OpenSILEX application lifecycle
 
-These settings are automatically configured by the installation script in the `opensilex.env` file.
+## Security Considerations
+
+- Change default OpenSILEX admin password immediately
+- Consider restricting SSH access to specific IP ranges
+- Regular system updates: `sudo apt update && sudo apt upgrade`
+- Monitor logs for suspicious activity
+- Use HTTPS in production (configure SSL certificates)
+- Implement backup strategies for data and configuration
 
 ---
 
-**Note:** This installation creates a development/testing environment. For production deployments, additional security hardening, backup strategies, and monitoring should be implemented.
+**Note:** This installation creates a development/testing environment. For production deployments, additional security hardening, SSL certificates, backup strategies, and monitoring should be implemented.
