@@ -97,10 +97,9 @@ If you don't have an SSH key pair:
 
 ```powershell
 # Generate new SSH key pair (Windows 10/11 with OpenSSH)
-ssh-keygen -t rsa -b 4096 -C "your-email@example.com"
-
+ssh-keygen -t ed25519 -a 100
 # Display public key (copy this for the template)
-Get-Content ~/.ssh/id_rsa.pub
+Get-Content ~/.ssh/id_ed25519.pub
 ```
 
 #### Linux Users
