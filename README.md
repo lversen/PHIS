@@ -203,20 +203,20 @@ Connect to your newly created Linux VM:
 
 ```powershell
 # Connect via SSH from PowerShell (Windows 10/11 has built-in SSH)
-ssh azureuser@YOUR_VM_PUBLIC_IP
+ssh -i ~/.ssh/id_ed25519 azureuser@YOUR_VM_PUBLIC_IP
 ```
 
 #### From Linux
 
 ```bash
 # Connect via SSH
-ssh azureuser@YOUR_VM_PUBLIC_IP
+ssh -i ~/.ssh/id_ed25519 azureuser@YOUR_VM_PUBLIC_IP
 ```
 
 If connection fails, verify:
 - VM is running
 - Network Security Group allows SSH (port 22)  
-- SSH key is correct
+- SSH key is correct (If using premade key, your identitiy type may be different)
 
 ## Step 3: Install Dependencies
 
@@ -343,6 +343,34 @@ Once installation completes, access OpenSILEX at:
 2. Navigate to `http://YOUR_VM_IP/`
 3. Log in with default credentials
 4. Verify OpenSILEX interface loads correctly
+
+### 5.4 Account Creation
+
+After initial setup, you can create new user accounts via the command line.
+
+**Create a new admin user:**
+
+```bash
+# Run the user creation command
+./run-opensilex.sh cmd user add --admin
+
+# You will be prompted to enter:
+# - First Name
+# - Last Name
+# - Email Address (this will be the username)
+# - Password
+```
+
+**Create a standard user:**
+
+```bash
+# Run the user creation command without the admin flag
+./run-opensilex.sh cmd user add
+
+# Follow the prompts as above
+```
+
+You can then log in with the new credentials at `http://YOUR_VM_IP/`.
 
 ## Management Commands
 
