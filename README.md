@@ -226,7 +226,8 @@ Once connected to the VM:
 
 ```bash
 # Download the setup script
-wget https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/setup-opensilex.sh
+wget https://raw.githubusercontent.com/lversen/PHIS/without-docker-compose/setup-opensilex.sh
+
 
 # Or copy from your local machine to the VM:
 # From Windows PowerShell: scp setup-opensilex.sh azureuser@YOUR_VM_IP:~/
@@ -284,7 +285,8 @@ ls -la ~/opensilex/
 
 ```bash
 # Download the management script
-wget https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/run-opensilex.sh
+wget https://raw.githubusercontent.com/lversen/PHIS/without-docker-compose/run-opensilex.sh
+
 
 # Make it executable
 chmod +x run-opensilex.sh
