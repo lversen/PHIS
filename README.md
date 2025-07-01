@@ -11,6 +11,7 @@ Implementation of PHIS using OpenSILEX with complete Azure deployment and setup 
 - [Step 3: Install Dependencies](#step-3-install-dependencies)
 - [Step 4: Install PHIS](#step-4-install-phis)
 - [Step 5: Access PHIS](#step-5-access-phis)
+- [Step 6: Create New User Accounts](#step-6-create-new-user-accounts)
 - [Development Setup (Optional)](#development-setup-optional)
 - [Troubleshooting](#troubleshooting)
 
@@ -195,25 +196,24 @@ Or check in the Azure Portal under the VM's overview page.
 ## Step 2: Connect to VM
 
 Connect to your newly created Linux VM:
-
 #### From Windows
 
 ```powershell
 # Connect via SSH from PowerShell (Windows 10/11 has built-in SSH)
-ssh azureuser@YOUR_VM_PUBLIC_IP
+ssh -i ~/.ssh/id_ed25519 azureuser@YOUR_VM_PUBLIC_IP
 ```
 
 #### From Linux
 
 ```bash
 # Connect via SSH
-ssh azureuser@YOUR_VM_PUBLIC_IP
+ssh -i ~/.ssh/id_ed25519 azureuser@YOUR_VM_PUBLIC_IP
 ```
 
 If connection fails, verify:
 - VM is running
 - Network Security Group allows SSH (port 22)  
-- SSH key is correct
+- SSH key is correct (If you used a premade key, your identity type might be different)
 
 ## Step 3: Install Dependencies
 
@@ -328,7 +328,6 @@ Once installation completes, access PHIS at:
 - **Username:** `admin@opensilex.org`
 - **Password:** `admin`
 
-**Security Note:** Change the default password immediately after first login.
 
 ### 5.3 Verify Installation
 
@@ -337,7 +336,53 @@ Once installation completes, access PHIS at:
 3. Log in with default credentials
 4. Verify PHIS theme is applied correctly
 
+## Step 6: Create New User Accounts
+
+To create additional user accounts, you can use the OpenSILEX command-line interface within the running Docker container.
+
+1.  **Connect to your VM via SSH.**
+
+2.  **Execute the user creation command:**
+
+    Use the `docker exec` command to run the user creation utility inside the `opensilexapp` container. Replace the placeholder values with the new user's details.
+
+    ```bash
+    sudo docker exec opensilex-docker-opensilexapp-1 bash -c \
+      "/var/www/html/bin/opensilex admin user create \
+        -u newuser@example.com \
+        -p securePassword \
+        -n New \
+        -f User"
+    ```
+
+    **Command Breakdown:**
+    *   `sudo docker exec opensilex-docker-opensilexapp-1`:  Executes a command in the main application container.
+    *   `/var/www/html/bin/opensilex admin user create`: The command to create a new user.
+    *   `-u newuser@example.com`: **(Required)** The user's email address for login.
+    *   `-p securePassword`: **(Required)** The user's password.
+    *   `-n New`: **(Required)** The user's first name.
+    *   `-f User`: **(Required)** The user's last name.
+
+3.  **Granting Admin Privileges (Optional)**
+
+    To create an administrator account, add the `-a` flag to the command:
+
+    ```bash
+    sudo docker exec opensilex-docker-opensilexapp-1 bash -c \
+      "/var/www/html/bin/opensilex admin user create \
+        -u adminuser@example.com \
+        -p securePassword \
+        -n Admin \
+        -f User \
+        -a"
+    ```
+
+4.  **Verify User Creation**
+
+    You can now log in to the PHIS application at `http://YOUR_VM_IP:28081/phis/app` with the new user's credentials.
+
 ## Development Setup (Optional)
+
 
 For development work with VS Code:
 
