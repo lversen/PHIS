@@ -1,11 +1,12 @@
 #!/bin/bash
-# OpenSILEX Installation Script for Azure VM
+# OpenSILEX Installation Script for Azure VM - Version 1.4.6
 # Run this script on your Debian 12 VM after SSH connection
 # Modified to use default user instead of creating opensilex user
+# Modified to install specific version 1.4.6
 
 set -e
 
-echo "=== OpenSILEX Installation Script ==="
+echo "=== OpenSILEX Installation Script - Version 1.4.6 ==="
 
 # Get current user
 CURRENT_USER=$(whoami)
@@ -78,18 +79,28 @@ mkdir -p $USER_HOME/opensilex/config
 mkdir -p $USER_HOME/opensilex/data
 mkdir -p $USER_HOME/opensilex/logs
 
-echo "=== Downloading OpenSILEX ==="
+echo "=== Downloading OpenSILEX Version 1.4.6 ==="
 
-# Get latest version info and download
-LATEST_VERSION=$(curl -s https://api.github.com/repos/OpenSILEX/opensilex/releases/latest | grep tag_name | cut -d '"' -f 4)
-echo "Downloading OpenSILEX version: $LATEST_VERSION"
+# Set specific version to 1.4.6
+TARGET_VERSION="1.4.6"
+echo "Downloading OpenSILEX version: $TARGET_VERSION"
 
 cd $USER_HOME/opensilex/bin
-wget "https://github.com/OpenSILEX/opensilex/releases/download/$LATEST_VERSION/opensilex-release-$LATEST_VERSION.zip"
-unzip "opensilex-release-$LATEST_VERSION.zip"
+
+# Download specific version 1.4.6
+wget "https://github.com/OpenSILEX/opensilex/releases/download/$TARGET_VERSION/opensilex-release-$TARGET_VERSION.zip"
+
+# Verify download was successful
+if [ ! -f "opensilex-release-$TARGET_VERSION.zip" ]; then
+    echo "ERROR: Failed to download OpenSILEX version $TARGET_VERSION"
+    echo "Please check if the version exists at: https://github.com/OpenSILEX/opensilex/releases"
+    exit 1
+fi
+
+unzip "opensilex-release-$TARGET_VERSION.zip"
 
 # Remove the zip file
-rm "opensilex-release-$LATEST_VERSION.zip"
+rm "opensilex-release-$TARGET_VERSION.zip"
 
 echo "=== Creating OpenSILEX configuration ==="
 
@@ -212,6 +223,8 @@ sudo systemctl daemon-reload
 sudo systemctl enable opensilex
 
 echo "=== Installation completed! ==="
+echo ""
+echo "OpenSILEX Version $TARGET_VERSION has been installed successfully!"
 echo ""
 echo "Next steps:"
 echo "1. Logout and login again (or run 'newgrp docker' and 'source ~/.bashrc')"
