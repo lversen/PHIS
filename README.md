@@ -226,7 +226,7 @@ Once connected to the VM:
 
 ```bash
 # Download the setup script
-wget https://raw.githubusercontent.com/lversen/PHIS/without-docker-compose/setup-opensilex.sh
+wget https://raw.githubusercontent.com/lversen/PHIS/without-docker-compose-v1.4.6/setup-opensilex.sh
 
 
 # Or copy from your local machine to the VM:
@@ -285,7 +285,7 @@ ls -la ~/opensilex/
 
 ```bash
 # Download the management script
-wget https://raw.githubusercontent.com/lversen/PHIS/without-docker-compose/run-opensilex.sh
+wget https://raw.githubusercontent.com/lversen/PHIS/without-docker-compose-v1.4.6/run-opensilex.sh
 
 
 # Make it executable
