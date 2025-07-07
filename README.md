@@ -420,6 +420,20 @@ sudo docker logs opensilex-docker-opensilexapp --tail=50
 sudo docker compose --env-file opensilex.env down
 sudo docker compose --env-file opensilex.env up -d
 ```
+## Codegen
+
+### Steps done
+
+- Converted swagger 2.0 api json to openapi 3.0.1
+- Generated python client using open_gen_installer.py using openapi 3.0.1 json as input and skipping validation
+- Fixed pytest errors using Gemini CLI, generated missing module "ref". (possible faulty code generation, will look further into options)
+
+
+## The client
+The client consists of 3 main parts:
+- Api files. Files that handle different api actions
+- Model files. Files that use the api files in a function.
+- Client/configuration files. Foundational files which are the basis of the client.
 
 ## Troubleshooting
 
