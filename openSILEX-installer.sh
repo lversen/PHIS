@@ -45,7 +45,7 @@ quick_fix_opensilex() {
                 echo "⚠️ User 'admin@opensilex.org' already exists. Skipping user creation."
             else
                 # Add admin user (suppressing output)
-                sudo docker exec -it opensilex-docker-opensilexapp ./bin/opensilex.sh user add --admin --email=admin@opensilex.org --lang=fr --firstName=firstName --lastName=lastName --password=admin > /dev/null 2>&1
+                sudo docker exec -it opensilex-docker-opensilexapp ./bin/opensilex.sh user add --admin --email=admin@opensilex.org --lang=en --firstName=Admin --lastName=User --password=admin > /dev/null 2>&1
                 echo "✅ Admin user 'admin@opensilex.org' created successfully."
             fi
             return

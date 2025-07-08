@@ -12,6 +12,7 @@ Implementation of PHIS using OpenSILEX with complete Azure deployment and setup 
 - [Step 4: Install PHIS](#step-4-install-phis)
 - [Step 5: Access PHIS](#step-5-access-phis)
 - [Step 6: Create New User Accounts](#step-6-create-new-user-accounts)
+- [Step 7: Service Management](#step-7-service-management)
 - [Development Setup (Optional)](#development-setup-optional)
 - [Troubleshooting](#troubleshooting)
 
@@ -348,38 +349,75 @@ To create additional user accounts, you can use the OpenSILEX command-line inter
 
     ```bash
     sudo docker exec opensilex-docker-opensilexapp-1 bash -c \
-      "/var/www/html/bin/opensilex admin user create \
-        -u newuser@example.com \
-        -p securePassword \
-        -n New \
-        -f User"
+      "./bin/opensilex.sh user add \
+        --email=newuser@example.com \
+        --password=securePassword \
+        --firstName=New \
+        --lastName=User \
+        --lang=en"
     ```
 
     **Command Breakdown:**
     *   `sudo docker exec opensilex-docker-opensilexapp-1`:  Executes a command in the main application container.
-    *   `/var/www/html/bin/opensilex admin user create`: The command to create a new user.
-    *   `-u newuser@example.com`: **(Required)** The user's email address for login.
-    *   `-p securePassword`: **(Required)** The user's password.
-    *   `-n New`: **(Required)** The user's first name.
-    *   `-f User`: **(Required)** The user's last name.
+    *   `./bin/opensilex.sh user add`: The command to create a new user.
+    *   `--email=newuser@example.com`: **(Required)** The user's email address for login.
+    *   `--password=securePassword`: **(Required)** The user's password.
+    *   `--firstName=New`: **(Required)** The user's first name.
+    *   `--lastName=User`: **(Required)** The user's last name.
+    *   `--lang=en`: **(Optional)** The user's language (e.g., `en`, `fr`). Defaults to `fr` if not specified.
 
 3.  **Granting Admin Privileges (Optional)**
 
-    To create an administrator account, add the `-a` flag to the command:
+    To create an administrator account, add the `--admin` flag to the command:
 
     ```bash
     sudo docker exec opensilex-docker-opensilexapp-1 bash -c \
-      "/var/www/html/bin/opensilex admin user create \
-        -u adminuser@example.com \
-        -p securePassword \
-        -n Admin \
-        -f User \
-        -a"
+      "./bin/opensilex.sh user add \
+        --email=adminuser@example.com \
+        --password=securePassword \
+        --firstName=Admin \
+        --lastName=User \
+        --lang=en \
+        --admin"
     ```
 
 4.  **Verify User Creation**
 
     You can now log in to the PHIS application at `http://YOUR_VM_IP:28081/phis/app` with the new user's credentials.
+
+## Step 7: Service Management
+
+A helper script `opensilex-manager.sh` is provided to simplify the management of the OpenSILEX service.
+
+### 7.1 Script Commands
+
+The script offers the following commands:
+
+*   `start`: Starts the OpenSILEX containers.
+*   `stop`: Stops the OpenSILEX containers.
+*   `restart`: Restarts the OpenSILEX containers.
+*   `status`: Checks the status of the running containers.
+*   `logs`: Tails the logs from the OpenSILEX containers.
+*   `update`: Pulls the latest version from Git, rebuilds containers, and restarts the service.
+
+### 7.2 Usage Examples
+
+To use the script, navigate to the repository's root directory on your VM and execute the following commands.
+
+**Check Status:**
+```bash
+./opensilex-manager.sh status
+```
+
+**Start Service:**
+```bash
+./opensilex-manager.sh start
+```
+
+**View Logs:**
+```bash
+./opensilex-manager.sh logs
+```
 
 ## Development Setup (Optional)
 
