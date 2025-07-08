@@ -1,0 +1,8 @@
+{
+  "VMName": "phis-home",
+  "PublicIP": "4.210.242.138",
+  "ResourceGroup": "RG-PHIS",
+  "SSHKeyPath": "C:\\Users\\sebas\\.ssh\\id_ed25519",
+  "AdminUsername": "azureuser",
+  "DeploymentTime": "2025-07-08 14:17:45"
+}

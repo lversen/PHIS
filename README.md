@@ -13,6 +13,7 @@ Implementation of PHIS using OpenSILEX with complete Azure deployment and setup 
 - [Step 5: Access PHIS](#step-5-access-phis)
 - [Step 6: Create New User Accounts](#step-6-create-new-user-accounts)
 - [Step 7: Service Management](#step-7-service-management)
+- [VM Management](#vm-management)
 - [Development Setup (Optional)](#development-setup-optional)
 - [Troubleshooting](#troubleshooting)
 
@@ -28,25 +29,85 @@ PHIS is implemented using OpenSILEX and deployed on Azure infrastructure. This g
 
 This installation process uses several automated scripts to simplify deployment:
 
-### `template-vm.json` - Azure VM Template
+### Deployment Scripts
+
+#### `Deploy-AzurePHISVM.ps1` - Automated VM Deployment (PowerShell)
+- **Purpose**: Automates the entire Azure VM deployment process with automatic SSH key detection
+- **Key features**: 
+  - Automatically finds and validates SSH keys on your system
+  - Handles Azure login and subscription selection
+  - Creates resource group if needed
+  - Validates template before deployment
+  - Saves connection information for future use
+- **Usage**: `.\Deploy-AzurePHISVM.ps1` or with custom parameters
+- **Platform**: Windows PowerShell or PowerShell 7+ on Linux/macOS
+
+#### `template-vm.json` - Azure VM Template
 - **Purpose**: Azure Resource Manager (ARM) template that creates the complete VM infrastructure
 - **What it creates**: Virtual machine, network security group, virtual network, public IP, and network interface
-- **Configuration**: Debian 12 VM with Standard_B2as_v2 size, SSH access, and ports 22, 80, and 28081 open
+- **Configuration**: Debian 12 VM with Standard_B2as_v2 size, SSH access, and ports 22, 80, 8080, and 28081 open
 - **Security**: Uses SSH key authentication and trusted launch with secure boot enabled
 
-### `openSILEX-dependencies.sh` - System Dependencies Installer
+#### `deploy-phis-vm.bat` - Windows Batch Launcher
+- **Purpose**: Simple double-click deployment for Windows users
+- **What it does**: Runs the PowerShell deployment script with proper execution policy
+- **Usage**: Double-click the file in Windows Explorer
+
+### VM Management Scripts
+
+#### `Manage-AzurePHISVM.ps1` - VM Management Utilities
+- **Purpose**: Provides easy VM management after deployment
+- **Available actions**:
+  - `Connect` - SSH to the VM
+  - `Status` - Check VM status
+  - `Start` - Start a stopped VM
+  - `Stop` - Stop VM to save costs
+  - `Restart` - Restart the VM
+  - `GetIP` - Get the public IP address
+  - `OpenPorts` - Show network security rules
+  - `Delete` - Delete all resources
+- **Usage**: `.\Manage-AzurePHISVM.ps1 -Action <ActionName>`
+
+#### `Check-ExistingVM.ps1` - Check for Existing VM
+- **Purpose**: Checks if a VM already exists and provides options
+- **When to use**: If deployment fails due to existing resources
+- **Options provided**: Use existing VM, delete and redeploy, or deploy with new name
+
+### Utility Scripts
+
+#### `New-SSHKey.ps1` - SSH Key Generator
+- **Purpose**: Creates new SSH key pairs for Azure VM authentication
+- **Key types supported**: ED25519 (recommended), RSA, ECDSA
+- **Features**: Automatic clipboard copy, passphrase support
+- **Usage**: `.\New-SSHKey.ps1` or `.\New-SSHKey.ps1 -KeyType rsa`
+
+#### `Test-SSHKeys.ps1` - SSH Key Diagnostic Tool
+- **Purpose**: Diagnoses SSH key issues and displays all keys found
+- **What it shows**: SSH directories, public keys, private key status
+- **Usage**: `.\Test-SSHKeys.ps1`
+
+### Linux VM Scripts
+
+#### `openSILEX-dependencies.sh` - System Dependencies Installer
 - **Purpose**: Prepares the Debian system with all required software and configurations
 - **Key installations**: Git, Docker, Docker Compose, and optionally VS Code
 - **Configurations**: Adds user to docker group, fixes permissions, sets up development workspace
 - **Safety features**: Includes error handling, privilege checks, and colored output for better user experience
 - **Development support**: Configures VS Code Remote-SSH and Dev Containers for remote development
 
-### `openSILEX-installer.sh` - PHIS Application Installer  
+#### `openSILEX-installer.sh` - PHIS Application Installer  
 - **Purpose**: Downloads, configures, and deploys OpenSILEX with PHIS theme customizations
 - **Key actions**: Clones OpenSILEX repository (v1.4.7), configures PHIS theme settings, builds containers
 - **PHIS customizations**: Sets application name, path prefix (/phis), and custom UI components
 - **User management**: Creates default admin user account with credentials
 - **Monitoring**: Waits up to 180 seconds for application startup and provides status feedback
+
+#### `opensilex-manager.sh` - Service Management Tool
+- **Purpose**: Provides easy management commands for OpenSILEX services after installation
+- **Key features**: Start, stop, restart, status check, logs viewing, and troubleshooting
+- **Commands available**: start, stop, restart, status, logs, info, shell, backup, clean
+- **Safety features**: Confirmation prompts for destructive actions, colored output
+- **Usage**: `./opensilex-manager.sh <command>` or interactive menu
 
 ## Prerequisites
 
@@ -54,7 +115,7 @@ Before starting, ensure you have:
 - Azure subscription with appropriate permissions
 - **Windows:** PowerShell with Azure PowerShell module (Az) OR Azure CLI
 - **Linux:** Azure CLI OR PowerShell 7+ with Azure PowerShell module (Az)
-- SSH key pair for secure VM access
+- SSH key pair for secure VM access (or use `New-SSHKey.ps1` to create one)
 - Basic knowledge of Linux command line
 
 ### Azure Management Setup
@@ -93,10 +154,19 @@ pwsh -c "Install-Module -Name Az -Repository PSGallery -Force"
 
 ### Generate SSH Key (if needed)
 
-If you don't have an SSH key pair:
+#### Option 1: Use the SSH Key Generator Script
 
-#### Windows Users
+```powershell
+# Generate new ED25519 key (recommended)
+.\New-SSHKey.ps1
 
+# Generate RSA key with custom name
+.\New-SSHKey.ps1 -KeyType rsa -KeyName azure_vm_key
+```
+
+#### Option 2: Manual Generation
+
+##### Windows Users
 ```powershell
 # Generate new SSH key pair (Windows 10/11 with OpenSSH)
 ssh-keygen -t ed25519 -a 100
@@ -104,8 +174,7 @@ ssh-keygen -t ed25519 -a 100
 Get-Content ~/.ssh/id_ed25519.pub
 ```
 
-#### Linux Users
-
+##### Linux Users
 ```bash
 # Generate new SSH key pair
 ssh-keygen -t ed25519 -a 100 
@@ -116,7 +185,46 @@ cat ~/.ssh/id_ed25519.pub
 
 ## Step 1: Deploy Azure VM
 
-### 1.1 Prepare the Template
+### Option 1: Automated Deployment (Recommended)
+
+The easiest way to deploy is using the automated PowerShell script:
+
+#### 1.1 Quick Start
+
+```powershell
+# Basic deployment with all defaults
+.\Deploy-AzurePHISVM.ps1
+```
+
+The script will:
+- Automatically find your SSH keys
+- Let you select which key to use
+- Handle Azure login
+- Create the resource group
+- Deploy the VM
+- Save connection details
+
+#### 1.2 Custom Deployment
+
+```powershell
+# Deploy with custom parameters
+.\Deploy-AzurePHISVM.ps1 -VMName "phis-dev" -ResourceGroupName "RG-PHIS-DEV" -Location "eastus"
+
+# Debug SSH key detection issues
+.\Deploy-AzurePHISVM.ps1 -DebugSSHKeys
+```
+
+#### 1.3 Windows Double-Click Deployment
+
+For Windows users who prefer not to use PowerShell directly:
+1. Double-click `deploy-phis-vm.bat`
+2. Follow the prompts
+
+### Option 2: Manual Deployment
+
+If you prefer manual deployment or need more control:
+
+#### 2.1 Prepare the Template
 
 1. Download or clone this repository to your local machine
 2. Open `template-vm.json` in your preferred editor
@@ -129,7 +237,7 @@ cat ~/.ssh/id_ed25519.pub
    ```
    With your actual SSH public key.
 
-### 1.2 Deploy Using PowerShell (Windows/Linux)
+#### 2.2 Deploy Using PowerShell (Windows/Linux)
 
 ```powershell
 # Install Azure PowerShell module if not already installed
@@ -150,7 +258,7 @@ New-AzResourceGroupDeployment `
   -sshPublicKey "YOUR_SSH_PUBLIC_KEY"
 ```
 
-### 1.3 Deploy Using Azure CLI (Linux/Windows)
+#### 2.3 Deploy Using Azure CLI (Linux/Windows)
 
 ```bash
 # Login to Azure
@@ -166,7 +274,7 @@ az deployment group create \
   --parameters vmName=phis adminUsername=azureuser sshPublicKey="YOUR_SSH_PUBLIC_KEY"
 ```
 
-### 1.4 Deploy Using Azure Portal (Alternative)
+#### 2.4 Deploy Using Azure Portal
 
 1. Navigate to [Azure Portal](https://portal.azure.com)
 2. Search for "Deploy a custom template"
@@ -176,45 +284,49 @@ az deployment group create \
 6. Click "Save" then "Review + create"
 7. Fill in the parameters and deploy
 
-### 1.5 Get VM Public IP
+### Post-Deployment
 
-After deployment completes:
+After successful deployment, the automated script will:
+- Display the VM's public IP address
+- Show the SSH connection command
+- Save connection info to `phis-vm-connection-info.json`
 
-**Using PowerShell:**
+To get VM information later:
 ```powershell
-# Get the public IP address
-(Get-AzPublicIpAddress -ResourceGroupName "RG-PHIS" -Name "phis-ip").IpAddress
-```
+# Show all VM info
+.\Manage-AzurePHISVM.ps1 -Action ShowInfo
 
-**Using Azure CLI:**
-```bash
-# Get the public IP address
-az vm show -d -g RG-PHIS -n phis --query publicIps -o tsv
+# Get just the IP
+.\Manage-AzurePHISVM.ps1 -Action GetIP
 ```
-
-Or check in the Azure Portal under the VM's overview page.
 
 ## Step 2: Connect to VM
 
-Connect to your newly created Linux VM:
-#### From Windows
+### Option 1: Using the Management Script
 
+```powershell
+# Connect automatically with saved connection info
+.\Manage-AzurePHISVM.ps1 -Action Connect
+```
+
+### Option 2: Manual Connection
+
+#### From Windows
 ```powershell
 # Connect via SSH from PowerShell (Windows 10/11 has built-in SSH)
 ssh -i ~/.ssh/id_ed25519 azureuser@YOUR_VM_PUBLIC_IP
 ```
 
 #### From Linux
-
 ```bash
 # Connect via SSH
 ssh -i ~/.ssh/id_ed25519 azureuser@YOUR_VM_PUBLIC_IP
 ```
 
-If connection fails, verify:
-- VM is running
-- Network Security Group allows SSH (port 22)  
-- SSH key is correct (If you used a premade key, your identity type might be different)
+If connection fails:
+- Check VM status: `.\Manage-AzurePHISVM.ps1 -Action Status`
+- Verify SSH key: `.\Test-SSHKeys.ps1`
+- Check open ports: `.\Manage-AzurePHISVM.ps1 -Action OpenPorts`
 
 ## Step 3: Install Dependencies
 
@@ -260,6 +372,10 @@ This script will:
 exit
 
 # Reconnect from your local machine to apply Docker group changes
+# Using the management script:
+.\Manage-AzurePHISVM.ps1 -Action Connect
+
+# Or manually:
 ssh azureuser@YOUR_VM_PUBLIC_IP
 ```
 
@@ -305,242 +421,346 @@ The installer will:
 
 ### 4.3 Monitor Installation Progress
 
-The script will show progress and wait up to 180 seconds for OpenSILEX to start. You'll see output like:
-
-```
-Waiting for OpenSilex to start (up to 180s)...
-✅ OpenSilex with Phis theme is running at http://YOUR_VM_IP:28081/phis/app
-Default login: admin@opensilex.org / admin
-🎨 Theme: Phis (configured with custom components)
-✅ Admin user 'admin@opensilex.org' created successfully.
-```
+The script will show progress and wait up to 180 seconds for OpenSILEX to start.
 
 ## Step 5: Access PHIS
 
-### 5.1 Application URLs
+After successful installation, you can access PHIS:
 
-Once installation completes, access PHIS at:
+1. **Web Interface:** `http://YOUR_VM_PUBLIC_IP:28081/phis/app/`
+2. **API Documentation:** `http://YOUR_VM_PUBLIC_IP:28081/phis/swagger-ui.html`
+3. **API Endpoint:** `http://YOUR_VM_PUBLIC_IP:28081/phis/rest`
 
-- **Main Application:** `http://YOUR_VM_IP:28081/phis/app`
-- **API Documentation:** `http://YOUR_VM_IP:28081/phis/api-docs`
+### Default Login Credentials
 
-### 5.2 Default Credentials
+- **Username:** admin@opensilex.org
+- **Password:** admin
 
-- **Username:** `admin@opensilex.org`
-- **Password:** `admin`
-
-
-### 5.3 Verify Installation
-
-1. Open your web browser
-2. Navigate to `http://YOUR_VM_IP:28081/phis/app`
-3. Log in with default credentials
-4. Verify PHIS theme is applied correctly
+**Important:** Change the default password immediately after first login!
 
 ## Step 6: Create New User Accounts
 
-To create additional user accounts, you can use the OpenSILEX command-line interface within the running Docker container.
+### Via Docker Command Line (Recommended)
 
-1.  **Connect to your VM via SSH.**
+The easiest way to create new users is through the OpenSILEX command-line interface using Docker:
 
-2.  **Execute the user creation command:**
+```bash
+# Navigate to the OpenSILEX directory
+cd ~/opensilex-docker-compose
 
-    Use the `docker exec` command to run the user creation utility inside the `opensilexapp` container. Replace the placeholder values with the new user's details.
+# Create a new user
+sudo docker exec -it opensilex-docker-opensilexapp \
+  java -jar opensilex.jar \
+  user add \
+  --email newuser@example.com \
+  --firstName John \
+  --lastName Doe \
+  --password securePassword123 \
+  --lang en \
+  --admin false
 
-    ```bash
-    sudo docker exec opensilex-docker-opensilexapp-1 bash -c \
-      "./bin/opensilex.sh user add \
-        --email=newuser@example.com \
-        --password=securePassword \
-        --firstName=New \
-        --lastName=User \
-        --lang=en"
-    ```
+# Create an admin user
+sudo docker exec -it opensilex-docker-opensilexapp \
+  java -jar opensilex.jar \
+  user add \
+  --email admin2@example.com \
+  --firstName Jane \
+  --lastName Admin \
+  --password adminPassword123 \
+  --lang en \
+  --admin true
+```
 
-    **Command Breakdown:**
-    *   `sudo docker exec opensilex-docker-opensilexapp-1`:  Executes a command in the main application container.
-    *   `./bin/opensilex.sh user add`: The command to create a new user.
-    *   `--email=newuser@example.com`: **(Required)** The user's email address for login.
-    *   `--password=securePassword`: **(Required)** The user's password.
-    *   `--firstName=New`: **(Required)** The user's first name.
-    *   `--lastName=User`: **(Required)** The user's last name.
-    *   `--lang=en`: **(Optional)** The user's language (e.g., `en`, `fr`). Defaults to `fr` if not specified.
+### User Management Commands
 
-3.  **Granting Admin Privileges (Optional)**
+```bash
+# List all users
+sudo docker exec -it opensilex-docker-opensilexapp \
+  java -jar opensilex.jar \
+  user list
 
-    To create an administrator account, add the `--admin` flag to the command:
+# Update user password
+sudo docker exec -it opensilex-docker-opensilexapp \
+  java -jar opensilex.jar \
+  user update \
+  --email newuser@example.com \
+  --password newSecurePassword456
 
-    ```bash
-    sudo docker exec opensilex-docker-opensilexapp-1 bash -c \
-      "./bin/opensilex.sh user add \
-        --email=adminuser@example.com \
-        --password=securePassword \
-        --firstName=Admin \
-        --lastName=User \
-        --lang=en \
-        --admin"
-    ```
+# Delete a user
+sudo docker exec -it opensilex-docker-opensilexapp \
+  java -jar opensilex.jar \
+  user delete \
+  --email unwanteduser@example.com
 
-4.  **Verify User Creation**
+# Get help on user commands
+sudo docker exec -it opensilex-docker-opensilexapp \
+  java -jar opensilex.jar \
+  user --help
+```
 
-    You can now log in to the PHIS application at `http://YOUR_VM_IP:28081/phis/app` with the new user's credentials.
+### Batch User Creation
+
+For multiple users, create a script:
+
+```bash
+# Create a file: create_users.sh
+#!/bin/bash
+cd ~/opensilex-docker-compose
+
+# Array of users to create
+users=(
+  "researcher1@example.com:Alice:Smith:password123:false"
+  "researcher2@example.com:Bob:Jones:password456:false"
+  "labadmin@example.com:Carol:Davis:adminpass789:true"
+)
+
+for user in "${users[@]}"; do
+  IFS=':' read -r email firstName lastName password admin <<< "$user"
+  echo "Creating user: $email"
+  sudo docker exec -it opensilex-docker-opensilexapp \
+    java -jar opensilex.jar \
+    user add \
+    --email "$email" \
+    --firstName "$firstName" \
+    --lastName "$lastName" \
+    --password "$password" \
+    --lang en \
+    --admin "$admin"
+done
+```
+
+### Via Web Interface (Alternative)
+
+1. Log in with admin credentials
+2. Navigate to **Users** menu
+3. Click **Add User**
+4. Fill in user details and assign appropriate permissions
+
+**Note:** The Docker method is preferred as it doesn't require authentication tokens and can be easily scripted for automation.
 
 ## Step 7: Service Management
 
-A helper script `opensilex-manager.sh` is provided to simplify the management of the OpenSILEX service.
+### Using the OpenSILEX Manager Script (Recommended)
 
-### 7.1 Script Commands
+For easier service management, download and use the manager script:
 
-The script offers the following commands:
-
-*   `start`: Starts the OpenSILEX containers.
-*   `stop`: Stops the OpenSILEX containers.
-*   `restart`: Restarts the OpenSILEX containers.
-*   `status`: Checks the status of the running containers.
-*   `logs`: Tails the logs from the OpenSILEX containers.
-*   `update`: Pulls the latest version from Git, rebuilds containers, and restarts the service.
-
-### 7.2 Usage Examples
-
-To use the script, navigate to the repository's root directory on your VM and execute the following commands.
-
-**Check Status:**
 ```bash
+# Download the manager script
+wget https://raw.githubusercontent.com/lversen/PHIS/main/opensilex-manager.sh
+
+# Or copy from your local machine to the VM:
+# From Windows PowerShell: scp opensilex-manager.sh azureuser@YOUR_VM_IP:~/
+# From Linux: scp opensilex-manager.sh azureuser@YOUR_VM_IP:~/
+
+# Make it executable
+chmod +x opensilex-manager.sh
+
+# View available commands
+./opensilex-manager.sh help
+
+# Common commands:
+./opensilex-manager.sh status    # Check service status
+./opensilex-manager.sh restart   # Restart all services
+./opensilex-manager.sh logs      # View logs
+./opensilex-manager.sh stop      # Stop all services
+./opensilex-manager.sh start     # Start all services
+```
+
+The manager script provides an interactive menu if run without arguments:
+```bash
+./opensilex-manager.sh
+```
+
+### Using Docker Compose Directly
+
+You can also manage services directly with Docker Compose:
+
+```bash
+# Navigate to the installation directory
+cd ~/opensilex-docker-compose
+
+# Stop all services
+sudo docker compose --env-file opensilex.env down
+
+# Start all services
+sudo docker compose --env-file opensilex.env up -d
+
+# Restart specific service
+sudo docker compose --env-file opensilex.env restart opensilexapp
+
+# View logs
+sudo docker compose --env-file opensilex.env logs -f opensilexapp
+```
+
+### Service Status
+
+```bash
+# Quick status check with manager script
 ./opensilex-manager.sh status
+
+# Or check manually:
+# Check all running containers
+sudo docker ps
+
+# Check container health
+sudo docker inspect opensilex-docker-opensilexapp | grep -A 5 Health
 ```
 
-**Start Service:**
-```bash
-./opensilex-manager.sh start
+## VM Management
+
+### Using the Management Script
+
+The `Manage-AzurePHISVM.ps1` script provides easy VM management:
+
+```powershell
+# Check VM status
+.\Manage-AzurePHISVM.ps1 -Action Status
+
+# Stop VM to save costs
+.\Manage-AzurePHISVM.ps1 -Action Stop
+
+# Start VM when needed
+.\Manage-AzurePHISVM.ps1 -Action Start
+
+# Restart VM
+.\Manage-AzurePHISVM.ps1 -Action Restart
+
+# Get public IP
+.\Manage-AzurePHISVM.ps1 -Action GetIP
+
+# Check open ports
+.\Manage-AzurePHISVM.ps1 -Action OpenPorts
+
+# Delete all resources (careful!)
+.\Manage-AzurePHISVM.ps1 -Action Delete
 ```
 
-**View Logs:**
-```bash
-./opensilex-manager.sh logs
+### Cost Management Tips
+
+- **Stop VM when not in use**: Saves significant costs
+- **Use auto-shutdown**: Configure in Azure Portal
+- **Monitor usage**: Check Azure Cost Management
+- **Consider smaller VM size**: For testing/development
+
+### Handling Existing VMs
+
+If you encounter deployment errors due to existing resources:
+
+```powershell
+# Check existing VM
+.\Check-ExistingVM.ps1
+
+# This will show you options to:
+# - Use the existing VM
+# - Delete and redeploy
+# - Deploy with a different name
 ```
 
 ## Development Setup (Optional)
 
+### VS Code Remote Development
 
-For development work with VS Code:
+If you installed VS Code during the dependencies setup:
 
-### 5.1 VS Code Remote Development
+1. **Install Remote-SSH Extension** on your local VS Code
+2. **Connect to VM:**
+   - Press `F1` → "Remote-SSH: Connect to Host"
+   - Enter: `azureuser@YOUR_VM_PUBLIC_IP`
+3. **Open workspace:** `/home/azureuser/development`
 
-#### Setup for Windows/Linux
-
-1. Install VS Code on your local machine with extensions:
-   - Remote - SSH
-   - Dev Containers
-
-2. Connect to Linux VM via Remote-SSH:
-   - Open VS Code on your local machine
-   - Press `Ctrl+Shift+P`
-   - Type "Remote-SSH: Connect to Host"
-   - Enter `azureuser@YOUR_VM_IP`
-
-3. Open project folder on the Linux VM:
-   - Navigate to `/home/azureuser/opensilex-docker-compose`
-
-4. Use Dev Containers:
-   - Press `Ctrl+Shift+P`
-   - Type "Dev Containers: Reopen in Container"
-
-### 5.2 Manual Development Setup
+### Development Workflow
 
 ```bash
-# Navigate to project directory
+# Clone your fork
+cd ~/development
+git clone https://github.com/YOUR_USERNAME/opensilex.git
+
+# Make changes and test
+cd opensilex
+# ... make your changes ...
+
+# Rebuild containers
 cd ~/opensilex-docker-compose
-
-# View logs
-sudo docker logs opensilex-docker-opensilexapp --tail=50
-
-# Restart containers if needed
-sudo docker compose --env-file opensilex.env down
+sudo docker compose --env-file opensilex.env build opensilexapp
 sudo docker compose --env-file opensilex.env up -d
 ```
-## Codegen
-
-### Steps done
-
-- Converted swagger 2.0 api json to openapi 3.0.1
-- Generated python client using open_gen_installer.py using openapi 3.0.1 json as input and skipping validation
-- Fixed pytest errors using Gemini CLI, generated missing module "ref". (possible faulty code generation, will look further into options)
-
-
-## The client
-The client consists of 3 main parts:
-- Api files. Files that handle different api actions
-- Model files. Files that use the api files in a function.
-- Client/configuration files. Foundational files which are the basis of the client.
 
 ## Troubleshooting
 
-### Common Issues
+### Deployment Issues
 
-#### 1. Cannot Connect to VM
-- Check VM is running in Azure Portal
-- Verify Network Security Group rules allow SSH (port 22)
-- Confirm SSH key is correct
-
-**Check VM status with PowerShell:**
+#### SSH Key Not Found
 ```powershell
-# Check VM status
-Get-AzVM -ResourceGroupName "RG-PHIS" -Name "phis" -Status
+# Check your SSH keys
+.\Test-SSHKeys.ps1
 
-# Start VM if stopped
-Start-AzVM -ResourceGroupName "RG-PHIS" -Name "phis"
+# Generate new key if needed
+.\New-SSHKey.ps1
 ```
 
-**Check VM status with Azure CLI:**
-```bash
-# Check VM status
-az vm get-instance-view --resource-group RG-PHIS --name phis --query instanceView.statuses
-
-# Start VM if stopped
-az vm start --resource-group RG-PHIS --name phis
+#### VM Already Exists
+```powershell
+# Check existing VM and get options
+.\Check-ExistingVM.ps1
 ```
 
-#### 2. Docker Permission Denied
+#### Azure Login Issues
+```powershell
+# Clear Azure context and re-login
+Clear-AzContext -Force
+Connect-AzAccount
+```
+
+### Connection Issues
+
+#### SSH Connection Refused
 ```bash
-# Fix Docker socket permissions
-sudo chmod 666 /var/run/docker.sock
+# Check if VM is running
+.\Manage-AzurePHISVM.ps1 -Action Status
 
-# Verify user is in docker group
-groups | grep docker
+# Check security rules
+.\Manage-AzurePHISVM.ps1 -Action OpenPorts
 
-# If not in group, add user and restart session
-sudo usermod -aG docker $(whoami)
+# Verify SSH service on VM (if you can access via Azure Portal)
+sudo systemctl status ssh
+```
+
+#### Firewall Blocking Access
+- Verify Network Security Group rules in Azure Portal
+- Check your local firewall settings
+- Try connecting from a different network
+
+### Installation Issues
+
+#### Docker Permission Denied
+```bash
+# Ensure user is in docker group
+groups
+
+# If not, add and re-login
+sudo usermod -aG docker $USER
 exit
-# Reconnect via SSH
+# Then reconnect
 ```
 
-#### 3. PHIS Not Accessible
+#### Port Already in Use
 ```bash
-# Check container status
-sudo docker ps
+# Check what's using the port
+sudo lsof -i :28081
 
-# View OpenSILEX logs
-sudo docker logs opensilex-docker-opensilexapp --tail=100
-
-# Check port 28081 is open
-sudo netstat -tlnp | grep 28081
+# Stop conflicting service or change PHIS port in opensilex.env
 ```
 
-**Verify Azure NSG allows port 28081 with PowerShell:**
-```powershell
-# Check Network Security Group rules
-Get-AzNetworkSecurityGroup -ResourceGroupName "RG-PHIS" -Name "phis-nsg" | Get-AzNetworkSecurityRuleConfig
-```
-
-**Verify Azure NSG with Azure CLI:**
+#### Container Won't Start
 ```bash
-# Check NSG rules
-az network nsg rule list --resource-group RG-PHIS --nsg-name phis-nsg --output table
-```
+# Check logs
+sudo docker logs opensilex-docker-opensilexapp
 
-#### 4. Installation Fails
-```bash
-# Clean up and retry
+# Clean and rebuild using manager script
+./opensilex-manager.sh clean
+./opensilex-manager.sh start
+
+# Or manually remove and rebuild
 cd ~/opensilex-docker-compose
 sudo docker compose --env-file opensilex.env down
 sudo docker system prune -f
@@ -549,6 +769,7 @@ sudo docker system prune -f
 
 ### Log Locations
 
+- **View logs with manager script:** `./opensilex-manager.sh logs`
 - **OpenSILEX Logs:** `sudo docker logs opensilex-docker-opensilexapp`
 - **MongoDB Logs:** `sudo docker logs opensilex-docker-mongodb`
 - **Container Status:** `sudo docker ps -a`
@@ -568,7 +789,10 @@ If you encounter issues:
 # View all containers
 sudo docker ps -a
 
-# Restart PHIS
+# Restart PHIS (using manager script)
+./opensilex-manager.sh restart
+
+# Or manually with docker compose
 cd ~/opensilex-docker-compose
 sudo docker compose --env-file opensilex.env restart
 
@@ -580,6 +804,9 @@ df -h
 
 # Check memory usage
 free -h
+
+# Quick service status
+./opensilex-manager.sh status
 ```
 
 ## Configuration Details
