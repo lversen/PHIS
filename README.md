@@ -109,6 +109,13 @@ This installation process uses several automated scripts to simplify deployment:
 - **Safety features**: Confirmation prompts for destructive actions, colored output
 - **Usage**: `./opensilex-manager.sh <command>` or interactive menu
 
+#### `create-opensilex-user.sh` - User Creation Helper
+- **Purpose**: Simplifies user creation with an easy-to-use command-line interface
+- **Key features**: Parameter validation, automatic container checks, colored output
+- **Parameters**: email, firstName, lastName, password, admin status, language
+- **Usage**: `./create-opensilex-user.sh -e email -f firstName -l lastName -p password`
+- **Benefits**: No need to remember long Docker commands, built-in help system
+
 ## Prerequisites
 
 Before starting, ensure you have:
@@ -440,62 +447,84 @@ After successful installation, you can access PHIS:
 
 ## Step 6: Create New User Accounts
 
-### Via Docker Command Line (Recommended)
+### Quick Method: Using Helper Script
 
-The easiest way to create new users is through the OpenSILEX command-line interface using Docker:
+Download and use the user creation helper script for the easiest experience:
+
+```bash
+# Download the helper script
+wget https://raw.githubusercontent.com/lversen/PHIS/main/create-opensilex-user.sh
+chmod +x create-opensilex-user.sh
+
+# Create a regular user
+./create-opensilex-user.sh \
+  -e johndoe@example.com \
+  -f John \
+  -l Doe \
+  -p password123
+
+# Create an admin user
+./create-opensilex-user.sh \
+  -e admin@example.com \
+  -f Jane \
+  -l Admin \
+  -p adminpass123 \
+  -a true
+
+# View help
+./create-opensilex-user.sh --help
+```
+
+### Via Docker Command Line
+
+You can also create users directly using Docker commands:
 
 ```bash
 # Navigate to the OpenSILEX directory
 cd ~/opensilex-docker-compose
 
 # Create a new user
-sudo docker exec -it opensilex-docker-opensilexapp \
-  java -jar opensilex.jar \
-  user add \
-  --email newuser@example.com \
-  --firstName John \
-  --lastName Doe \
-  --password securePassword123 \
-  --lang en \
-  --admin false
+sudo docker exec opensilex-docker-opensilexapp bash -c \
+  "/home/opensilex/bin/opensilex.sh user add \
+  --email=newuser@example.com \
+  --firstName=John \
+  --lastName=Doe \
+  --password=securePassword123 \
+  --lang=en \
+  --admin=false"
 
 # Create an admin user
-sudo docker exec -it opensilex-docker-opensilexapp \
-  java -jar opensilex.jar \
-  user add \
-  --email admin2@example.com \
-  --firstName Jane \
-  --lastName Admin \
-  --password adminPassword123 \
-  --lang en \
-  --admin true
+sudo docker exec opensilex-docker-opensilexapp bash -c \
+  "/home/opensilex/bin/opensilex.sh user add \
+  --email=admin2@example.com \
+  --firstName=Jane \
+  --lastName=Admin \
+  --password=adminPassword123 \
+  --lang=en \
+  --admin=true"
 ```
 
 ### User Management Commands
 
 ```bash
 # List all users
-sudo docker exec -it opensilex-docker-opensilexapp \
-  java -jar opensilex.jar \
-  user list
+sudo docker exec opensilex-docker-opensilexapp bash -c \
+  "/home/opensilex/bin/opensilex.sh user list"
 
 # Update user password
-sudo docker exec -it opensilex-docker-opensilexapp \
-  java -jar opensilex.jar \
-  user update \
-  --email newuser@example.com \
-  --password newSecurePassword456
+sudo docker exec opensilex-docker-opensilexapp bash -c \
+  "/home/opensilex/bin/opensilex.sh user update \
+  --email=newuser@example.com \
+  --password=newSecurePassword456"
 
 # Delete a user
-sudo docker exec -it opensilex-docker-opensilexapp \
-  java -jar opensilex.jar \
-  user delete \
-  --email unwanteduser@example.com
+sudo docker exec opensilex-docker-opensilexapp bash -c \
+  "/home/opensilex/bin/opensilex.sh user delete \
+  --email=unwanteduser@example.com"
 
 # Get help on user commands
-sudo docker exec -it opensilex-docker-opensilexapp \
-  java -jar opensilex.jar \
-  user --help
+sudo docker exec opensilex-docker-opensilexapp bash -c \
+  "/home/opensilex/bin/opensilex.sh user --help"
 ```
 
 ### Batch User Creation
@@ -517,15 +546,14 @@ users=(
 for user in "${users[@]}"; do
   IFS=':' read -r email firstName lastName password admin <<< "$user"
   echo "Creating user: $email"
-  sudo docker exec -it opensilex-docker-opensilexapp \
-    java -jar opensilex.jar \
-    user add \
-    --email "$email" \
-    --firstName "$firstName" \
-    --lastName "$lastName" \
-    --password "$password" \
-    --lang en \
-    --admin "$admin"
+  sudo docker exec opensilex-docker-opensilexapp bash -c \
+    "/home/opensilex/bin/opensilex.sh user add \
+    --email=$email \
+    --firstName=$firstName \
+    --lastName=$lastName \
+    --password=$password \
+    --lang=en \
+    --admin=$admin"
 done
 ```
 
