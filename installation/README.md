@@ -1,29 +1,29 @@
-# PHIS Automated Installation Orchestrator
+# PHIS Unified Installation System
 
-This orchestration system automates the entire PHIS installation process, from Azure VM creation to running service deployment.
+This unified installation system replaces all previous scripts with a single, comprehensive solution for deploying and managing PHIS on Azure.
 
 ## 🚀 Quick Start
 
 ### Windows Users - Easiest Method
-1. **Double-click** `install-phis.bat`
-2. **Choose option 1** for full installation
-3. **Follow the prompts** - the script handles everything automatically
+1. **Double-click** `PHIS.bat`
+2. **Select from the menu** - everything is automated!
 
-### PowerShell Users
+### PowerShell Direct Commands
 ```powershell
-# Full automated installation
-.\Install-PHIS.ps1
+# Interactive menu (recommended for first-time users)
+.\PHIS-Master.ps1
+
+# Complete installation (VM + PHIS)
+.\PHIS-Master.ps1 -Command FullInstall
 
 # Install on existing VM
-.\Install-PHIS.ps1 -UseExistingVM -VMIPAddress "YOUR_VM_IP"
+.\PHIS-Master.ps1 -Command Install -VMIPAddress "20.50.100.200"
 
 # Check status
-.\Install-PHIS.ps1 -Action Status
+.\PHIS-Master.ps1 -Command Status
 ```
 
 ## 📋 Prerequisites
-
-Before running the orchestrator, ensure you have:
 
 1. **Azure PowerShell Module**
    ```powershell
@@ -32,104 +32,75 @@ Before running the orchestrator, ensure you have:
    
    # Install if missing (run as Administrator)
    Install-Module -Name Az -Repository PSGallery -Force
+   
+   # Or install for current user only
+   Install-Module -Name Az -Scope CurrentUser
    ```
 
-2. **SSH Key** (the script will auto-detect existing keys)
+2. **SSH Key** (auto-generated if needed)
    ```powershell
-   # Generate if you don't have one
+   # Generate SSH key through the script
+   .\PHIS-Master.ps1 -Command GenerateSSHKey
+   
+   # Or manually
    ssh-keygen -t ed25519 -a 100
    ```
 
-3. **Azure Subscription** with permissions to create resources
+3. **Azure Subscription** with appropriate permissions
 
-## 📁 Required Files
+4. **Required Files** (for VM deployment)
+   - `PHIS-Master.ps1` - The master script
+   - `template-vm.json` - Azure VM template
+   - `PHIS.bat` - Windows launcher (optional)
 
-Ensure these files are in the same directory:
+## 🎯 Available Commands
 
-### For Full Installation (VM + PHIS)
-- `Install-PHIS.ps1` - Main orchestrator script
-- `Deploy-AzurePHISVM.ps1` - VM deployment script
-- `template-vm.json` - Azure VM template
-- `install-phis.bat` - Windows batch launcher (optional)
+### Installation Commands
+| Command | Description | Example |
+|---------|-------------|---------|
+| `FullInstall` | Deploy VM + Install PHIS | `.\PHIS-Master.ps1 -Command FullInstall` |
+| `Deploy` | Create Azure VM only | `.\PHIS-Master.ps1 -Command Deploy` |
+| `Install` | Install PHIS on existing VM | `.\PHIS-Master.ps1 -Command Install -VMIPAddress "IP"` |
 
-### For Installation on Existing VM Only
-- `Install-PHIS.ps1` - Main orchestrator script
+### Management Commands
+| Command | Description | Example |
+|---------|-------------|---------|
+| `Status` | Check installation status | `.\PHIS-Master.ps1 -Command Status` |
+| `Connect` | SSH to VM | `.\PHIS-Master.ps1 -Command Connect` |
+| `Start` | Start stopped VM | `.\PHIS-Master.ps1 -Command Start` |
+| `Stop` | Stop VM (save costs) | `.\PHIS-Master.ps1 -Command Stop` |
+| `Restart` | Restart VM | `.\PHIS-Master.ps1 -Command Restart` |
+| `Delete` | Delete all resources | `.\PHIS-Master.ps1 -Command Delete` |
+| `Logs` | View service logs | `.\PHIS-Master.ps1 -Command Logs` |
 
-## 🔧 Installation Options
+### Utility Commands
+| Command | Description | Example |
+|---------|-------------|---------|
+| `Diagnose` | Run diagnostics | `.\PHIS-Master.ps1 -Command Diagnose` |
+| `GenerateSSHKey` | Create new SSH key | `.\PHIS-Master.ps1 -Command GenerateSSHKey` |
+| `TestSSHKeys` | Check SSH key configuration | `.\PHIS-Master.ps1 -Command TestSSHKeys` |
+| `ShowInfo` | Display VM information | `.\PHIS-Master.ps1 -Command ShowInfo` |
+| `GetIP` | Get VM public IP | `.\PHIS-Master.ps1 -Command GetIP` |
+| `OpenPorts` | Show network security rules | `.\PHIS-Master.ps1 -Command OpenPorts` |
+| `Menu` | Interactive menu (default) | `.\PHIS-Master.ps1` |
 
-### Option 1: Full Installation (Recommended)
-Creates a new Azure VM and installs PHIS automatically.
-
-```powershell
-.\Install-PHIS.ps1
-```
-
-**What happens:**
-1. ✅ Checks prerequisites
-2. ✅ Auto-detects SSH keys
-3. ✅ Creates Azure VM in West Europe
-4. ✅ Installs all dependencies (Docker, Git, etc.)
-5. ✅ Deploys PHIS with custom configuration
-6. ✅ Starts all services
-7. ✅ Displays access URLs and credentials
-
-### Option 2: Install on Existing VM
-Use this if you already have a Debian 12 VM.
-
-```powershell
-.\Install-PHIS.ps1 -UseExistingVM -VMIPAddress "20.50.100.200"
-```
-
-**Requirements for existing VM:**
-- Debian 12 operating system
-- SSH access with key authentication
-- Ports 22, 80, 8080, and 28081 open
-- Sudo privileges for the user
-
-### Option 3: VM Creation Only
-Creates the VM without installing PHIS.
-
-```powershell
-.\Install-PHIS.ps1 -Action VMOnly
-```
-
-### Option 4: Check Status
-Verifies the installation status of an existing deployment.
-
-```powershell
-# Using saved connection info
-.\Install-PHIS.ps1 -Action Status
-
-# Specifying VM IP
-.\Install-PHIS.ps1 -Action Status -VMIPAddress "20.50.100.200"
-```
-
-## 🎯 Advanced Usage
-
-### Custom Parameters
+## 🔧 Common Parameters
 
 ```powershell
 # Custom VM name and resource group
-.\Install-PHIS.ps1 -VMName "phis-dev" -ResourceGroupName "RG-PHIS-DEV"
+.\PHIS-Master.ps1 -Command FullInstall -VMName "phis-dev" -ResourceGroupName "RG-PHIS-DEV"
 
 # Different Azure region
-.\Install-PHIS.ps1 -Location "eastus"
+.\PHIS-Master.ps1 -Command Deploy -Location "eastus"
 
-# Specify SSH key explicitly
-.\Install-PHIS.ps1 -SSHKeyPath "C:\Users\me\.ssh\my_key"
+# Custom SSH username
+.\PHIS-Master.ps1 -Command Install -AdminUsername "myuser" -VMIPAddress "20.50.100.200"
 
-# Skip dependencies (if already installed)
-.\Install-PHIS.ps1 -UseExistingVM -VMIPAddress "20.50.100.200" -SkipDependencies
-```
+# Specify SSH key path
+.\PHIS-Master.ps1 -Command Connect -SSHKeyPath "C:\keys\my_key"
 
-### Troubleshooting Options
-
-```powershell
-# Debug SSH key detection
-.\Deploy-AzurePHISVM.ps1 -DebugSSHKeys
-
-# Test SSH connectivity
-.\Install-PHIS.ps1 -Action Status -VMIPAddress "YOUR_IP"
+# Skip dependency installation (if already installed)
+.\PHIS-Master.ps1 -Command Install -VMIPAddress "IP" -SkipDependencies
 ```
 
 ## 📊 What Gets Installed
@@ -138,7 +109,7 @@ Verifies the installation status of an existing deployment.
 - **VM**: Standard_B2as_v2 (2 vCPUs, 8 GB RAM)
 - **OS**: Debian 12
 - **Storage**: 30 GB Premium SSD
-- **Network**: Public IP with required ports open
+- **Network**: Public IP with required ports (22, 80, 8080, 28081)
 
 ### Software Stack
 - Docker and Docker Compose
@@ -147,12 +118,6 @@ Verifies the installation status of an existing deployment.
 - PHIS theme and configuration
 - MongoDB (containerized)
 - All required dependencies
-
-### Configuration
-- **Application Name**: Phis
-- **Path Prefix**: /phis
-- **Theme**: opensilex-phis#phis
-- **Default Admin**: admin@opensilex.org
 
 ## 🌐 Accessing PHIS
 
@@ -168,148 +133,152 @@ After successful installation:
 
 ⚠️ **Important**: Change the default password immediately after first login!
 
-## 🛠️ Post-Installation Management
+## 💡 Usage Examples
 
-### SSH to Your VM
-```bash
-ssh -i ~/.ssh/id_ed25519 azureuser@YOUR_VM_IP
-```
-
-### Service Management
-Once connected to the VM:
-```bash
-# Check status
-./opensilex-manager.sh status
-
-# Restart service
-./opensilex-manager.sh restart
-
-# View logs
-./opensilex-manager.sh logs
-
-# Stop service
-./opensilex-manager.sh stop
-```
-
-### VM Management
-From your local machine:
+### Example 1: Complete New Installation
 ```powershell
-# Stop VM (save costs)
-.\Manage-AzurePHISVM.ps1 -Action Stop
+# Run this for a complete automated installation
+.\PHIS-Master.ps1 -Command FullInstall
+```
 
-# Start VM
-.\Manage-AzurePHISVM.ps1 -Action Start
+### Example 2: Install on Existing Debian 12 VM
+```powershell
+# If you already have a VM
+.\PHIS-Master.ps1 -Command Install -VMIPAddress "20.50.100.200"
+```
 
-# Get VM info
-.\Manage-AzurePHISVM.ps1 -Action ShowInfo
+### Example 3: Daily Management
+```powershell
+# Morning - Start VM
+.\PHIS-Master.ps1 -Command Start
+
+# Check status
+.\PHIS-Master.ps1 -Command Status
+
+# Connect for maintenance
+.\PHIS-Master.ps1 -Command Connect
+
+# Evening - Stop VM to save costs
+.\PHIS-Master.ps1 -Command Stop
+```
+
+### Example 4: Troubleshooting
+```powershell
+# Run diagnostics
+.\PHIS-Master.ps1 -Command Diagnose
+
+# Check logs
+.\PHIS-Master.ps1 -Command Logs
+
+# Test SSH connectivity
+.\PHIS-Master.ps1 -Command TestSSHKeys
 ```
 
 ## 🔍 Troubleshooting
 
-### Installation Fails
-
-1. **Check Prerequisites**
-   ```powershell
-   # Verify Azure module
-   Get-Module -ListAvailable -Name Az
-   
-   # Check SSH keys
-   .\Test-SSHKeys.ps1
-   ```
-
-2. **Connection Issues**
-   - Verify VM is running: `.\Manage-AzurePHISVM.ps1 -Action Status`
-   - Check firewall rules allow your IP
-   - Ensure SSH key permissions are correct
-
-3. **Service Not Starting**
-   - SSH to VM and check logs: `sudo docker logs opensilex-docker-opensilexapp`
-   - Verify Docker is running: `sudo systemctl status docker`
-   - Check disk space: `df -h`
-
 ### Common Issues
 
-**"Cannot find SSH key"**
-- Generate a new key: `ssh-keygen -t ed25519 -a 100`
-- Or specify path: `-SSHKeyPath "path/to/key"`
-
-**"VM already exists"**
-- Use existing: `-UseExistingVM -VMIPAddress "IP"`
-- Or delete and recreate: `.\Manage-AzurePHISVM.ps1 -Action Delete`
-
-**"Docker permission denied"**
-- The script handles this automatically
-- If persists, logout and login to VM again
-
-**"Port 28081 not accessible"**
-- Check VM network security group in Azure Portal
-- Verify service is running: SSH and run `./opensilex-manager.sh status`
-
-## 📝 Logs and Debugging
-
-### View Installation Logs
+**"Azure module not found"**
 ```powershell
-# Check saved connection info
-Get-Content .\phis-vm-connection-info.json
+# Install as admin
+Install-Module -Name Az -Force
 
-# View orchestrator output
-.\Install-PHIS.ps1 -Verbose
+# Or for current user
+Install-Module -Name Az -Scope CurrentUser
 ```
 
-### On the VM
-```bash
-# Docker containers status
-sudo docker ps -a
+**"No SSH key found"**
+```powershell
+# Generate through script
+.\PHIS-Master.ps1 -Command GenerateSSHKey
 
-# OpenSILEX logs
-sudo docker logs opensilex-docker-opensilexapp --tail 100
-
-# System logs
-journalctl -u docker -n 50
+# Or manually
+ssh-keygen -t ed25519 -a 100
 ```
 
-## 🔐 Security Notes
+**"Cannot connect to VM"**
+```powershell
+# Check VM status
+.\PHIS-Master.ps1 -Command Status
 
-1. **SSH Keys**: Keep your private keys secure
-2. **Firewall**: Consider restricting SSH access to your IP
-3. **Passwords**: Change all default passwords immediately
-4. **Updates**: Regularly update the system and containers
+# Verify SSH keys
+.\PHIS-Master.ps1 -Command TestSSHKeys
 
-## 💡 Tips
+# Check network rules
+.\PHIS-Master.ps1 -Command OpenPorts
+```
 
-1. **Save Money**: Stop the VM when not in use
-   ```powershell
-   .\Manage-AzurePHISVM.ps1 -Action Stop
-   ```
+**"PHIS not accessible"**
+```powershell
+# Check service logs
+.\PHIS-Master.ps1 -Command Logs
 
-2. **Backup**: Create VM snapshots before major changes
+# Connect and check Docker
+.\PHIS-Master.ps1 -Command Connect
+# Then run: sudo docker ps -a
+```
 
-3. **Development**: Use VS Code Remote-SSH for development
-   - Install Remote-SSH extension
-   - Connect to `azureuser@YOUR_VM_IP`
+## 🛡️ Security Best Practices
 
-4. **Monitoring**: Set up Azure alerts for VM health
+1. **Change default passwords immediately**
+2. **Restrict SSH access** to your IP in Azure NSG
+3. **Regular updates**: Keep system and containers updated
+4. **Backup**: Create VM snapshots before major changes
+5. **Monitor**: Set up Azure alerts for VM health
+
+## 📝 Advanced Configuration
+
+### Custom Parameters File
+Create `phis-config.json` for repeated deployments:
+```json
+{
+    "VMName": "phis-prod",
+    "ResourceGroupName": "RG-PHIS-PROD",
+    "Location": "eastus",
+    "AdminUsername": "phisadmin"
+}
+```
+
+Then use:
+```powershell
+$config = Get-Content phis-config.json | ConvertFrom-Json
+.\PHIS-Master.ps1 -Command FullInstall @config
+```
+
+### Automation Examples
+```powershell
+# Scheduled VM start (Task Scheduler)
+.\PHIS-Master.ps1 -Command Start
+
+# Backup before updates
+.\PHIS-Master.ps1 -Command Stop
+# Create snapshot in Azure Portal
+.\PHIS-Master.ps1 -Command Start
+```
+
+## 🎉 Migration from Old Scripts
+
+If you were using the old scripts, here's the migration guide:
+
+| Old Command | New Command |
+|-------------|-------------|
+| `.\Deploy-AzurePHISVM.ps1` | `.\PHIS-Master.ps1 -Command Deploy` |
+| `.\Install-PHIS.ps1` | `.\PHIS-Master.ps1 -Command FullInstall` |
+| `.\Manage-AzurePHISVM.ps1 -Action Connect` | `.\PHIS-Master.ps1 -Command Connect` |
+| `.\Test-PHISInstallation.ps1` | `.\PHIS-Master.ps1 -Command Diagnose` |
+| `.\New-SSHKey.ps1` | `.\PHIS-Master.ps1 -Command GenerateSSHKey` |
+| `.\Test-SSHKeys.ps1` | `.\PHIS-Master.ps1 -Command TestSSHKeys` |
 
 ## 📞 Support
 
 If you encounter issues:
 
-1. Check the troubleshooting section above
-2. Review logs on both local machine and VM
-3. Ensure all prerequisites are met
-4. Verify network connectivity
-
-## 🎉 Success Checklist
-
-After installation, verify:
-
-- [ ] Can access web interface at http://YOUR_VM_IP:28081/phis/app/
-- [ ] Can login with default credentials
-- [ ] Changed default password
-- [ ] All Docker containers are running
-- [ ] API documentation is accessible
-- [ ] Can SSH to VM for management
+1. Run diagnostics: `.\PHIS-Master.ps1 -Command Diagnose`
+2. Check logs: `.\PHIS-Master.ps1 -Command Logs`
+3. Verify prerequisites are met
+4. Ensure network connectivity
+5. Check Azure subscription permissions
 
 ---
 
-**Note**: This orchestrator creates a development/testing environment. For production deployments, additional security hardening, backup strategies, and monitoring should be implemented.
+**Note**: This script creates a development/testing environment. For production deployments, implement additional security hardening, backup strategies, and monitoring.
