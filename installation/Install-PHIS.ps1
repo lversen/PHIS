@@ -152,23 +152,31 @@ function Test-SSHConnection {
     
     Write-Info "Testing SSH connection to $IPAddress..."
     
-    $sshCmd = "ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i `"$KeyPath`" $Username@$IPAddress 'echo CONNECTION_SUCCESS'"
+    $sshArgs = @(
+        "-o", "StrictHostKeyChecking=no"
+        "-o", "ConnectTimeout=10"
+        "-i", $KeyPath
+        "$Username@$IPAddress"
+        "echo CONNECTION_SUCCESS"
+    )
     
     try {
-        $result = Invoke-Expression $sshCmd 2>&1
+        $result = & ssh $sshArgs 2>&1
         if ($result -match "CONNECTION_SUCCESS") {
             Write-Success "SSH connection successful"
             return $true
         }
+        else {
+            Write-Warning "SSH connection test failed: $result"
+            return $false
+        }
     }
     catch {
         Write-Warning "SSH connection failed: $_"
+        return $false
     }
-    
-    return $false
 }
 
-# Function to execute command via SSH
 function Invoke-SSHCommand {
     param(
         [string]$IPAddress,
@@ -178,14 +186,25 @@ function Invoke-SSHCommand {
         [switch]$ShowOutput = $true
     )
     
-    $sshCmd = "ssh -o StrictHostKeyChecking=no -i `"$KeyPath`" $Username@$IPAddress '$Command'"
-    
-    if ($ShowOutput) {
-        Invoke-Expression $sshCmd
+    try {
+        if ($ShowOutput) {
+            # For display output, use direct execution
+            & ssh -o StrictHostKeyChecking=no -i $KeyPath "$Username@$IPAddress" $Command
+        }
+        else {
+            # For capturing output, redirect to variable
+            $result = & ssh -o StrictHostKeyChecking=no -i $KeyPath "$Username@$IPAddress" $Command 2>&1
+            return $result
+        }
     }
-    else {
-        $result = Invoke-Expression $sshCmd 2>&1
-        return $result
+    catch {
+        Write-Warning "SSH command execution failed: $_"
+        if ($ShowOutput) {
+            return $false
+        }
+        else {
+            return $null
+        }
     }
 }
 
@@ -199,11 +218,16 @@ function Copy-FileToVM {
         [string]$RemotePath
     )
     
-    $scpCmd = "scp -o StrictHostKeyChecking=no -i `"$KeyPath`" `"$LocalPath`" $Username@${IPAddress}:$RemotePath"
+    $scpArgs = @(
+        "-o", "StrictHostKeyChecking=no"
+        "-i", $KeyPath
+        $LocalPath
+        "$Username@${IPAddress}:$RemotePath"
+    )
     
     try {
-        Invoke-Expression $scpCmd 2>&1 | Out-Null
-        return $true
+        $result = & scp $scpArgs 2>&1
+        return $LASTEXITCODE -eq 0
     }
     catch {
         Write-Warning "Failed to copy file: $_"
@@ -302,56 +326,17 @@ function Get-ExistingVMInfo {
     return $null
 }
 
-# Function to install dependencies
+# Instead of complex here-document scripts, use simple one-liners
 function Install-Dependencies {
     param($ConnectionInfo, [string]$KeyPath)
     
     Write-Step "Installing system dependencies"
     
-    Write-Info "Downloading dependencies script..."
-    $cmd = "wget -q -O ~/openSILEX-dependencies.sh '$DependenciesScriptURL' && chmod +x ~/openSILEX-dependencies.sh"
-    Invoke-SSHCommand -IPAddress $ConnectionInfo.PublicIP -Username $ConnectionInfo.AdminUsername `
-                      -KeyPath $KeyPath -Command $cmd -ShowOutput:$false
-    
-    Write-Info "Running dependencies installation (this may take several minutes)..."
-    Write-Warning "You will see installation progress below:"
-    
-    # Run installation script with a timeout and handle Docker group change
-    $installCmd = @"
-#!/bin/bash
-# Run the dependencies script
-./openSILEX-dependencies.sh
-
-# Check if user was added to docker group
-if groups | grep -q docker; then
-    echo "User already in docker group"
-else
-    echo "Docker group change detected - requires new session"
-    # Force group refresh without logout
-    newgrp docker << EOF
-echo "Docker group activated"
-EOF
-fi
-"@
-    
-    # Create and run a wrapper script
-    $wrapperCmd = "echo '$installCmd' > install-wrapper.sh && chmod +x install-wrapper.sh && bash install-wrapper.sh"
-    Invoke-SSHCommand -IPAddress $ConnectionInfo.PublicIP -Username $ConnectionInfo.AdminUsername `
-                      -KeyPath $KeyPath -Command $wrapperCmd
+    Write-Info "Downloading and running dependencies script..."
+    $cmd = "wget -q -O ~/openSILEX-dependencies.sh '$DependenciesScriptURL' && chmod +x ~/openSILEX-dependencies.sh && ./openSILEX-dependencies.sh"
+    Invoke-SSHCommand -IPAddress $ConnectionInfo.PublicIP -Username $ConnectionInfo.AdminUsername -KeyPath $KeyPath -Command $cmd
     
     Write-Success "Dependencies installed"
-    
-    # Test Docker access with a new SSH session
-    Write-Info "Testing Docker access..."
-    $testCmd = "docker --version && docker ps"
-    $dockerTest = Invoke-SSHCommand -IPAddress $ConnectionInfo.PublicIP -Username $ConnectionInfo.AdminUsername `
-                                   -KeyPath $KeyPath -Command $testCmd -ShowOutput:$false
-    
-    if ($dockerTest -match "Cannot connect to the Docker daemon") {
-        Write-Warning "Docker group change requires reconnection. Handling automatically..."
-        # Force a new SSH session for subsequent commands
-        Start-Sleep -Seconds 2
-    }
 }
 
 # Function to install PHIS
@@ -361,20 +346,28 @@ function Install-PHIS {
     Write-Step "Installing PHIS/OpenSILEX"
     
     Write-Info "Downloading PHIS installer script..."
-    $cmd = "wget -q -O ~/openSILEX-installer.sh '$InstallerScriptURL' && chmod +x ~/openSILEX-installer.sh"
-    Invoke-SSHCommand -IPAddress $ConnectionInfo.PublicIP -Username $ConnectionInfo.AdminUsername `
-                      -KeyPath $KeyPath -Command $cmd -ShowOutput:$false
+    $downloadCmd = "wget -q -O ~/openSILEX-installer.sh '$InstallerScriptURL' && chmod +x ~/openSILEX-installer.sh"
+    $null = Invoke-SSHCommand -IPAddress $ConnectionInfo.PublicIP -Username $ConnectionInfo.AdminUsername `
+                              -KeyPath $KeyPath -Command $downloadCmd -ShowOutput:$false
     
     Write-Info "Downloading service manager script..."
-    $cmd = "wget -q -O ~/opensilex-manager.sh '$ManagerScriptURL' && chmod +x ~/opensilex-manager.sh"
-    Invoke-SSHCommand -IPAddress $ConnectionInfo.PublicIP -Username $ConnectionInfo.AdminUsername `
-                      -KeyPath $KeyPath -Command $cmd -ShowOutput:$false
+    $downloadCmd = "wget -q -O ~/opensilex-manager.sh '$ManagerScriptURL' && chmod +x ~/opensilex-manager.sh"
+    $null = Invoke-SSHCommand -IPAddress $ConnectionInfo.PublicIP -Username $ConnectionInfo.AdminUsername `
+                              -KeyPath $KeyPath -Command $downloadCmd -ShowOutput:$false
     
     Write-Info "Running PHIS installation (this will take several minutes)..."
     Write-Warning "Installation progress will be shown below:"
     
-    # Run with sudo to ensure Docker permissions work
-    $installCmd = "sudo -E bash -c 'cd ~ && ./openSILEX-installer.sh'"
+    # Run installation
+    $installCmd = @"
+#!/bin/bash
+set -e
+echo "Starting PHIS installation..."
+cd ~
+sudo -E bash -c './openSILEX-installer.sh'
+echo "PHIS installation completed."
+"@
+    
     Invoke-SSHCommand -IPAddress $ConnectionInfo.PublicIP -Username $ConnectionInfo.AdminUsername `
                       -KeyPath $KeyPath -Command $installCmd
     
@@ -389,20 +382,24 @@ function Get-InstallationStatus {
     
     # Check Docker containers
     Write-Info "Docker containers status:"
+    $dockerCmd = "sudo docker ps -a --format 'table {{.Names}}\t{{.Status}}'"
     Invoke-SSHCommand -IPAddress $ConnectionInfo.PublicIP -Username $ConnectionInfo.AdminUsername `
-                      -KeyPath $KeyPath -Command "sudo docker ps -a --format 'table {{.Names}}\t{{.Status}}'"
+                      -KeyPath $KeyPath -Command $dockerCmd
     
     # Check if PHIS is accessible
     Write-Info "`nChecking PHIS web interface..."
-    $checkCmd = "curl -s -o /dev/null -w '%{http_code}' http://localhost:28081/phis/app/ || echo 'Failed'"
+    $checkCmd = "timeout 10 curl -s -o /dev/null -w '%{http_code}' http://localhost:28081/phis/app/ 2>/dev/null || echo 'Failed'"
     $result = Invoke-SSHCommand -IPAddress $ConnectionInfo.PublicIP -Username $ConnectionInfo.AdminUsername `
                                 -KeyPath $KeyPath -Command $checkCmd -ShowOutput:$false
     
-    if ($result -eq "200") {
+    if ($result -match "200") {
         Write-Success "PHIS web interface is accessible"
     }
+    elseif ($result -match "Failed") {
+        Write-Warning "PHIS web interface is not responding (service may still be starting)"
+    }
     else {
-        Write-Warning "PHIS web interface is not responding (HTTP code: $result)"
+        Write-Warning "PHIS web interface returned HTTP code: $result"
     }
     
     # Display access information
@@ -555,4 +552,11 @@ function Main {
 }
 
 # Execute main function
-Main
+try {
+    Main
+}
+catch {
+    Write-Error "Script execution failed: $_"
+    Write-Info "Check the error details above and try again."
+    exit 1
+}
