@@ -224,13 +224,55 @@ function New-PHISVM {
     
     # Run deployment script
     try {
+        Write-Info "Executing VM deployment script..."
         & $deployScript -VMName $VMName -ResourceGroupName $ResourceGroupName -Location $Location
         
-        # Read connection info
-        if (Test-Path $ConnectionInfoFile) {
-            $connInfo = Get-Content $ConnectionInfoFile | ConvertFrom-Json
-            return $connInfo
+        # Give it a moment to write the connection file
+        Start-Sleep -Seconds 3
+        
+        # Read connection info - try multiple times if needed
+        $retries = 5
+        $connInfo = $null
+        
+        while ($retries -gt 0 -and -not $connInfo) {
+            if (Test-Path $ConnectionInfoFile) {
+                try {
+                    $connInfo = Get-Content $ConnectionInfoFile | ConvertFrom-Json
+                    if ($connInfo.PublicIP) {
+                        Write-Success "Connection info loaded: $($connInfo.PublicIP)"
+                        return $connInfo
+                    }
+                } catch {
+                    Write-Warning "Error reading connection info file, retrying..."
+                }
+            }
+            
+            $retries--
+            if ($retries -gt 0) {
+                Start-Sleep -Seconds 2
+            }
         }
+        
+        # If we can't read the file, try to get info directly from Azure
+        Write-Warning "Could not read connection info file, attempting to retrieve from Azure..."
+        try {
+            $publicIP = (Get-AzPublicIpAddress -ResourceGroupName $ResourceGroupName -Name "$VMName-ip").IpAddress
+            if ($publicIP) {
+                $connInfo = @{
+                    VMName = $VMName
+                    ResourceGroup = $ResourceGroupName
+                    PublicIP = $publicIP
+                    AdminUsername = "azureuser"
+                    DeploymentTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+                }
+                Write-Success "Retrieved VM info from Azure: $publicIP"
+                return $connInfo
+            }
+        } catch {
+            Write-Error "Could not retrieve VM information from Azure: $_"
+        }
+        
+        return $null
     }
     catch {
         Write-Error "VM deployment failed: $_"
