@@ -13,8 +13,8 @@ SSH config file.
 General Usage Pattern:
 1. Import the setup function from this module.
    `from api_connection import authenticate_and_get_client`
-   `from openapi_client.api import YourApiClass`
-   `from openapi_client.exceptions import ApiException`
+   `from swagger_client.api import YourApiClass`
+   `from swagger_client.rest import ApiException`
 
 2. Call `authenticate_and_get_client()` to get an authenticated ApiClient.
    For interactive host selection: `api_client, token = authenticate_and_get_client(interactive_host_selection=True)`
@@ -29,18 +29,19 @@ import sys
 import os
 
 # Add the 'python-client' directory to the python path for imports
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'python-client')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'generated-python-client')))
 
-import openapi_client
-from openapi_client.api import AuthenticationApi
-from openapi_client.models import AuthenticationDTO
-from openapi_client.exceptions import ApiException
+
+import swagger_client
+from swagger_client.api import AuthenticationApi
+from swagger_client.models import AuthenticationDTO
+from swagger_client.rest import ApiException
 from get_host import SSHConfigParser # Import the SSH config parser
 
 # --- Configuration ---
 # TODO: Replace these placeholder values with your actual API host and credentials.
 # This is the default host. It can be overridden with interactive selection.
-API_HOST = "http://20.86.69.55:28081/rest"
+API_HOST = "http://20.4.226.32:28081/rest"
 API_USER = "admin@opensilex.org"
 API_PASSWORD = "admin"
 
@@ -82,8 +83,9 @@ def authenticate_and_get_client(interactive_host_selection=False):
 
 
     # Step 1: Create a basic, unauthenticated client for the login request.
-    unauthenticated_config = openapi_client.Configuration(host=host_to_use)
-    unauthenticated_client = openapi_client.ApiClient(unauthenticated_config)
+    unauthenticated_config = swagger_client.Configuration()
+    unauthenticated_config.host = host_to_use
+    unauthenticated_client = swagger_client.ApiClient(unauthenticated_config)
     
     auth_api = AuthenticationApi(unauthenticated_client)
     
@@ -100,13 +102,13 @@ def authenticate_and_get_client(interactive_host_selection=False):
         print("Successfully authenticated and received access token.")
 
         # Step 3: Create a new configuration with the received bearer token.
-        authenticated_config = openapi_client.Configuration(
-            host=host_to_use,
-            access_token=access_token
-        )
+        authenticated_config = swagger_client.Configuration()
+        authenticated_config.host = host_to_use
+        authenticated_config.api_key['Authorization'] = access_token
+        authenticated_config.api_key_prefix['Authorization'] = 'Bearer'
 
         # Step 4: Create and return the fully authenticated client.
-        authenticated_client = openapi_client.ApiClient(authenticated_config)
+        authenticated_client = swagger_client.ApiClient(authenticated_config)
         return authenticated_client, access_token
 
     except ApiException as e:

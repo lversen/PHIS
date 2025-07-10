@@ -1,0 +1,21 @@
+{
+  "packageName": "my_api_client",
+  "projectName": "my-api-client",
+  "packageVersion": "1.0.0",
+  "packageUrl": "https://github.com/yourusername/my-api-client",
+  "hideGenerationTimestamp": true,
+  "generateSourceCodeOnly": false,
+  "library": "urllib3",
+  "sortParamsByRequiredFlag": true,
+  "ensureUniqueParams": true,
+  "allowUnicodeIdentifiers": false,
+  "pythonPackageName": "my_api_client",
+  "packageCompany": "Your Company Name",
+  "packageAuthor": "Your Name",
+  "packageAuthorEmail": "your.email@example.com",
+  "packageDescription": "Python client for My API",
+  "packageKeywords": ["API", "client", "REST"],
+  "gitUserId": "yourusername",
+  "gitRepoId": "my-api-client",
+  "httpUserAgent": "MyAPIClient/1.0.0/python"
+}

@@ -5,7 +5,7 @@ Generates mock data for testing and development
 
 from faker import Faker
 from typing import List
-from openapi_client.models import (ProjectCreationDTO, ExperimentCreationDTO, 
+from swagger_client.models import (ProjectCreationDTO, ExperimentCreationDTO, 
                                    ScientificObjectCreationDTO, DeviceCreationDTO, 
                                    OrganizationCreationDTO)
 
@@ -39,9 +39,8 @@ class MockClient:
             description=fake.text(max_nb_chars=200),
             start_date=start_date.strftime('%Y-%m-%d'),
             end_date=end_date.strftime('%Y-%m-%d'),
-            homepage=fake.url(),
+            website=fake.url(),
             objective=fake.sentence(nb_words=10),
-            keywords=[fake.word() for _ in range(5)],
             related_projects=[],
             coordinators=[],
             scientific_contacts=[],
@@ -141,7 +140,7 @@ class MockClient:
             name=fake.word() + " Camera",
             rdf_type="http://www.opensilex.org/vocabulary/oeso#Camera",
             brand=fake.company(),
-            model=fake.bothify(text='Model-##??'),
+            constructor_model=fake.bothify(text='Model-##??'),
             serial_number=fake.ean(length=13),
             description=fake.text(max_nb_chars=100),
             relations=[]
@@ -169,12 +168,6 @@ class MockClient:
         return OrganizationCreationDTO(
             name=fake.company(),
             rdf_type="http://www.opensilex.org/vocabulary/oeso#Organization",
-            address=fake.address(),
-            phone=fake.phone_number(),
-            email=fake.company_email(),
-            website=fake.url(),
-            description=fake.text(max_nb_chars=100),
-            relations=[]
         )
 
     def create_mock_organizations(self, num_organizations: int) -> List[OrganizationCreationDTO]:
@@ -188,3 +181,18 @@ class MockClient:
             A list of OrganizationCreationDTO objects.
         """
         return [self.create_mock_organization() for _ in range(num_organizations)]
+
+
+class MockResponse:
+    """
+    A mock response object to simulate API responses.
+    """
+    def __init__(self, success: bool, data=None, message: str = "", errors=None):
+        self.success = success
+        self.data = data
+        self.message = message
+        self.errors = errors if errors else []
+
+    @property
+    def status_code(self):
+        return 200 if self.success else 400
