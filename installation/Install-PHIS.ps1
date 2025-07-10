@@ -316,17 +316,42 @@ function Install-Dependencies {
     Write-Info "Running dependencies installation (this may take several minutes)..."
     Write-Warning "You will see installation progress below:"
     
-    # Run installation script
+    # Run installation script with a timeout and handle Docker group change
+    $installCmd = @"
+#!/bin/bash
+# Run the dependencies script
+./openSILEX-dependencies.sh
+
+# Check if user was added to docker group
+if groups | grep -q docker; then
+    echo "User already in docker group"
+else
+    echo "Docker group change detected - requires new session"
+    # Force group refresh without logout
+    newgrp docker << EOF
+echo "Docker group activated"
+EOF
+fi
+"@
+    
+    # Create and run a wrapper script
+    $wrapperCmd = "echo '$installCmd' > install-wrapper.sh && chmod +x install-wrapper.sh && bash install-wrapper.sh"
     Invoke-SSHCommand -IPAddress $ConnectionInfo.PublicIP -Username $ConnectionInfo.AdminUsername `
-                      -KeyPath $KeyPath -Command "./openSILEX-dependencies.sh"
+                      -KeyPath $KeyPath -Command $wrapperCmd
     
     Write-Success "Dependencies installed"
     
-    # Note about Docker group
-    Write-Warning @"
-Docker group changes require re-login. The script will handle this automatically.
-If you encounter permission issues later, manually logout and login to the VM.
-"@
+    # Test Docker access with a new SSH session
+    Write-Info "Testing Docker access..."
+    $testCmd = "docker --version && docker ps"
+    $dockerTest = Invoke-SSHCommand -IPAddress $ConnectionInfo.PublicIP -Username $ConnectionInfo.AdminUsername `
+                                   -KeyPath $KeyPath -Command $testCmd -ShowOutput:$false
+    
+    if ($dockerTest -match "Cannot connect to the Docker daemon") {
+        Write-Warning "Docker group change requires reconnection. Handling automatically..."
+        # Force a new SSH session for subsequent commands
+        Start-Sleep -Seconds 2
+    }
 }
 
 # Function to install PHIS
