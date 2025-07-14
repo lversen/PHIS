@@ -251,6 +251,8 @@ function Test-Port {
         return $false
     }
 }
+
+function Find-SSHKeys {
     Write-Info "Searching for SSH public keys..."
     
     $sshPaths = @(
