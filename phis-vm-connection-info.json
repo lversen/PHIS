@@ -1,8 +1,8 @@
 {
-  "AdminUsername": "azureuser",
   "SSHKeyPath": "C:\\Users\\siv017\\.ssh\\id_ed25519",
-  "PublicIP": "20.4.224.163",
-  "DeploymentTime": "2025-07-10 14:07:19",
+  "ResourceGroup": "RG-PHIS",
   "VMName": "phis",
-  "ResourceGroup": "RG-PHIS"
+  "AdminUsername": "azureuser",
+  "DeploymentTime": "2025-07-14 10:44:52",
+  "PublicIP": "20.56.88.33"
 }

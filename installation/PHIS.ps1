@@ -10,6 +10,7 @@
     - VM management (start/stop/connect)
     - SSH key generation and testing
     - Diagnostics and troubleshooting
+    - User account management
     - Interactive menu system
 
 .PARAMETER Command
@@ -25,6 +26,9 @@
     - Diagnose: Run diagnostics
     - GenerateSSHKey: Create new SSH key
     - TestSSHKeys: Check SSH keys
+    - TestSSH: Test SSH connectivity with detailed diagnostics
+    - CreateUser: Create new PHIS user account
+    - ListUsers: List all PHIS users
 
 .PARAMETER VMName
     Name of the VM (default: phis)
@@ -57,15 +61,19 @@
     # Install on existing VM
 
 .EXAMPLE
-    .\PHIS.ps1 -Command Connect
-    # SSH to VM
+    .\PHIS.ps1 -Command CreateUser
+    # Create a new PHIS user account
+
+.EXAMPLE
+    .\PHIS.ps1 -Command TestSSH
+    # Test SSH connectivity with detailed diagnostics
 #>
 
 [CmdletBinding()]
 param(
     [ValidateSet('Menu', 'Deploy', 'Install', 'FullInstall', 'Connect', 'Status', 
                  'Start', 'Stop', 'Restart', 'Delete', 'Diagnose', 'GenerateSSHKey', 
-                 'TestSSHKeys', 'ShowInfo', 'GetIP', 'OpenPorts', 'Logs')]
+                 'TestSSHKeys', 'ShowInfo', 'GetIP', 'OpenPorts', 'Logs', 'CreateUser', 'ListUsers', 'TestSSH')]
     [string]$Command = 'Menu',
     
     [string]$VMName = "phis",
@@ -80,7 +88,14 @@ param(
     [switch]$DebugSSHKeys,
     [switch]$NoPassphrase,
     [string]$KeyType = "ed25519",
-    [string]$KeyName
+    [string]$KeyName,
+    # User creation parameters
+    [string]$UserEmail,
+    [string]$UserFirstName,
+    [string]$UserLastName,
+    [string]$UserPassword,
+    [switch]$UserIsAdmin,
+    [string]$UserLanguage = "en"
 )
 
 # Script configuration
@@ -146,12 +161,16 @@ function Show-Menu {
     Write-Host "  7. " -NoNewline; Write-Host "View Service Logs" -ForegroundColor White
     Write-Host "  8. " -NoNewline; Write-Host "Delete All Resources" -ForegroundColor White
     
+    Write-Host "`n━━━ User Management ━━━" -ForegroundColor Yellow
+    Write-Host "  9. " -NoNewline; Write-Host "Create New User" -ForegroundColor White
+    Write-Host " 10. " -NoNewline; Write-Host "List All Users" -ForegroundColor White
+    
     Write-Host "`n━━━ Utilities ━━━" -ForegroundColor Yellow
-    Write-Host "  9. " -NoNewline; Write-Host "Run Diagnostics" -ForegroundColor White
-    Write-Host " 10. " -NoNewline; Write-Host "Generate SSH Key" -ForegroundColor White
-    Write-Host " 11. " -NoNewline; Write-Host "Test SSH Keys" -ForegroundColor White
-    Write-Host " 12. " -NoNewline; Write-Host "Install Azure PowerShell Module" -ForegroundColor White
-    Write-Host " 13. " -NoNewline; Write-Host "Show VM Information" -ForegroundColor White
+    Write-Host " 11. " -NoNewline; Write-Host "Run Diagnostics" -ForegroundColor White
+    Write-Host " 12. " -NoNewline; Write-Host "Generate SSH Key" -ForegroundColor White
+    Write-Host " 13. " -NoNewline; Write-Host "Test SSH Keys" -ForegroundColor White
+    Write-Host " 14. " -NoNewline; Write-Host "Install Azure PowerShell Module" -ForegroundColor White
+    Write-Host " 15. " -NoNewline; Write-Host "Show VM Information" -ForegroundColor White
     
     Write-Host "`n  0. " -NoNewline; Write-Host "Exit" -ForegroundColor Red
     Write-Host "`n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Gray
@@ -641,22 +660,56 @@ function Test-SSHConnection {
     
     Write-Info "Testing SSH connection to $IPAddress..."
     
+    # First try a simple port test
+    Write-Info "Checking if SSH port 22 is open..."
+    $portTest = Test-NetConnection -ComputerName $IPAddress -Port 22 -WarningAction SilentlyContinue -InformationLevel Quiet
+    
+    if (-not $portTest) {
+        Write-Warning "SSH port 22 is not accessible yet"
+        return $false
+    }
+    
+    Write-Success "SSH port 22 is open"
+    
+    # Now test actual SSH connection with a timeout wrapper
     $sshArgs = @(
         "-o", "StrictHostKeyChecking=no"
-        "-o", "ConnectTimeout=10"
+        "-o", "ConnectTimeout=5"
+        "-o", "ServerAliveInterval=5"
+        "-o", "ServerAliveCountMax=2"
+        "-o", "BatchMode=yes"
         "-i", $KeyPath
         "$Username@$IPAddress"
         "echo CONNECTION_SUCCESS"
     )
     
     try {
-        $result = & ssh $sshArgs 2>&1
-        if ($result -match "CONNECTION_SUCCESS") {
-            Write-Success "SSH connection successful"
-            return $true
+        # Use a job with timeout to prevent hanging
+        $job = Start-Job -ScriptBlock {
+            param($sshExe, $args)
+            & $sshExe $args 2>&1
+        } -ArgumentList (Get-Command ssh).Path, $sshArgs
+        
+        $completed = Wait-Job -Job $job -Timeout 15
+        
+        if ($completed) {
+            $result = Receive-Job -Job $job
+            Remove-Job -Job $job -Force
+            
+            if ($result -match "CONNECTION_SUCCESS") {
+                Write-Success "SSH connection successful"
+                return $true
+            }
+        } else {
+            Write-Warning "SSH connection timed out after 15 seconds"
+            Stop-Job -Job $job -Force
+            Remove-Job -Job $job -Force
+            return $false
         }
     }
-    catch {}
+    catch {
+        Write-Warning "SSH connection test failed: $_"
+    }
     
     Write-Warning "SSH connection failed"
     return $false
@@ -711,7 +764,7 @@ function Install-Dependencies {
     Write-Step "Installing system dependencies"
     
     Write-Info "Downloading and running dependencies script..."
-    # Pipe 'N' to the script to automatically decline the optional VS Code installation, preventing the script from hanging on interactive input.
+    # Pipe 'N' to the script to automatically decline the optional VS Code installation
     $cmd = "wget -q -O ~/openSILEX-dependencies.sh '$script:DependenciesScriptURL' && chmod +x ~/openSILEX-dependencies.sh && echo 'N' | ./openSILEX-dependencies.sh"
     Invoke-SSHCommand -IPAddress $ConnectionInfo.PublicIP -Username $ConnectionInfo.AdminUsername -KeyPath $KeyPath -Command $cmd
     
@@ -792,6 +845,190 @@ function Show-ServiceLogs {
 }
 #endregion
 
+#region User Management Functions
+function New-PHISUser {
+    param(
+        [string]$Email,
+        [string]$FirstName,
+        [string]$LastName,
+        [string]$Password,
+        [bool]$IsAdmin = $false,
+        [string]$Language = "en"
+    )
+    
+    $info = Get-ConnectionInfo
+    if (-not $info) {
+        Write-Error "No connection info found"
+        return
+    }
+    
+    $sshKey = Find-SSHPrivateKey -ProvidedPath $SSHKeyPath
+    if (-not $sshKey) { return }
+    
+    Write-Step "Creating PHIS User"
+    
+    # Check if container is running
+    Write-Info "Checking if PHIS container is running..."
+    $checkCmd = "sudo docker ps | grep -q opensilex-docker-opensilexapp && echo 'RUNNING' || echo 'NOT_RUNNING'"
+    $containerStatus = Invoke-SSHCommand -IPAddress $info.PublicIP -Username $info.AdminUsername `
+                                       -KeyPath $sshKey -Command $checkCmd -ShowOutput:$false
+    
+    if ($containerStatus -notmatch "RUNNING") {
+        Write-Error "PHIS container is not running. Please ensure the service is started."
+        return
+    }
+    
+    # Build the user creation command
+    $adminFlag = if ($IsAdmin) { "--admin=true" } else { "--admin=false" }
+    
+    $createUserCmd = @"
+sudo docker exec opensilex-docker-opensilexapp bash -c "/home/opensilex/bin/opensilex.sh user add \
+    --email=$Email \
+    --firstName=$FirstName \
+    --lastName=$LastName \
+    --password=$Password \
+    --lang=$Language \
+    $adminFlag"
+"@
+    
+    Write-Info "Creating user: $Email"
+    Write-Info "Name: $FirstName $LastName"
+    Write-Info "Admin: $IsAdmin"
+    Write-Info "Language: $Language"
+    
+    # Execute the command
+    $result = Invoke-SSHCommand -IPAddress $info.PublicIP -Username $info.AdminUsername `
+                               -KeyPath $sshKey -Command $createUserCmd
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Success "User created successfully!"
+        
+        if ($IsAdmin) {
+            Write-Warning "This user has admin privileges"
+        }
+        
+        Write-Info "`nThe user can now log in at:"
+        Write-Host "  http://$($info.PublicIP):28081/phis/app/" -ForegroundColor Green
+    } else {
+        Write-Error "Failed to create user. The user may already exist or there was an error."
+    }
+}
+
+function Get-PHISUsers {
+    $info = Get-ConnectionInfo
+    if (-not $info) {
+        Write-Error "No connection info found"
+        return
+    }
+    
+    $sshKey = Find-SSHPrivateKey -ProvidedPath $SSHKeyPath
+    if (-not $sshKey) { return }
+    
+    Write-Step "Listing PHIS Users"
+    
+    # Check if container is running
+    $checkCmd = "sudo docker ps | grep -q opensilex-docker-opensilexapp && echo 'RUNNING' || echo 'NOT_RUNNING'"
+    $containerStatus = Invoke-SSHCommand -IPAddress $info.PublicIP -Username $info.AdminUsername `
+                                       -KeyPath $sshKey -Command $checkCmd -ShowOutput:$false
+    
+    if ($containerStatus -notmatch "RUNNING") {
+        Write-Error "PHIS container is not running. Please ensure the service is started."
+        return
+    }
+    
+    # List users
+    $listCmd = "sudo docker exec opensilex-docker-opensilexapp bash -c '/home/opensilex/bin/opensilex.sh user list'"
+    
+    Write-Info "Fetching user list..."
+    Invoke-SSHCommand -IPAddress $info.PublicIP -Username $info.AdminUsername `
+                     -KeyPath $sshKey -Command $listCmd
+}
+
+function Start-UserCreationWizard {
+    Write-Step "User Creation Wizard"
+    
+    # Get email
+    do {
+        $email = Read-Host "Enter email address"
+        if ($email -match "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$") {
+            $validEmail = $true
+        } else {
+            Write-Warning "Invalid email format. Please try again."
+            $validEmail = $false
+        }
+    } while (-not $validEmail)
+    
+    # Get first name
+    do {
+        $firstName = Read-Host "Enter first name"
+        if ($firstName.Trim() -ne "") {
+            $validFirstName = $true
+        } else {
+            Write-Warning "First name cannot be empty."
+            $validFirstName = $false
+        }
+    } while (-not $validFirstName)
+    
+    # Get last name
+    do {
+        $lastName = Read-Host "Enter last name"
+        if ($lastName.Trim() -ne "") {
+            $validLastName = $true
+        } else {
+            Write-Warning "Last name cannot be empty."
+            $validLastName = $false
+        }
+    } while (-not $validLastName)
+    
+    # Get password
+    do {
+        $password = Read-Host "Enter password" -AsSecureString
+        $confirmPassword = Read-Host "Confirm password" -AsSecureString
+        
+        # Convert SecureString to plain text for comparison
+        $pwd1 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($password))
+        $pwd2 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($confirmPassword))
+        
+        if ($pwd1 -eq $pwd2 -and $pwd1.Length -ge 6) {
+            $validPassword = $true
+            $plainPassword = $pwd1
+        } else {
+            if ($pwd1 -ne $pwd2) {
+                Write-Warning "Passwords do not match."
+            } else {
+                Write-Warning "Password must be at least 6 characters."
+            }
+            $validPassword = $false
+        }
+    } while (-not $validPassword)
+    
+    # Get admin status
+    $adminResponse = Read-Host "Should this user be an admin? (Y/N)"
+    $isAdmin = $adminResponse -eq 'Y'
+    
+    # Get language
+    Write-Info "Available languages: en, fr, es, de, it, pt"
+    $language = Read-Host "Enter language code (default: en)"
+    if ($language -eq "") { $language = "en" }
+    
+    # Confirm details
+    Write-Info "`nUser Details:"
+    Write-Host "  Email: $email"
+    Write-Host "  Name: $firstName $lastName"
+    Write-Host "  Admin: $isAdmin"
+    Write-Host "  Language: $language"
+    
+    $confirm = Read-Host "`nCreate this user? (Y/N)"
+    
+    if ($confirm -eq 'Y') {
+        New-PHISUser -Email $email -FirstName $firstName -LastName $lastName `
+                     -Password $plainPassword -IsAdmin $isAdmin -Language $language
+    } else {
+        Write-Warning "User creation cancelled."
+    }
+}
+#endregion
+
 #region Diagnostic Functions
 function Test-PHISInstallation {
     Write-Step "Running Diagnostics"
@@ -856,6 +1093,116 @@ function Test-PHISInstallation {
 }
 #endregion
 
+#region SSH Diagnostic Functions
+function Test-SSHConnectivity {
+    Write-Step "SSH Connectivity Diagnostic"
+    
+    $info = Get-ConnectionInfo
+    if (-not $info) {
+        Write-Error "No connection info found. Deploy a VM first or specify -VMIPAddress"
+        return
+    }
+    
+    $sshKey = Find-SSHPrivateKey -ProvidedPath $SSHKeyPath
+    if (-not $sshKey) { 
+        Write-Error "No SSH private key found"
+        return 
+    }
+    
+    Write-Info "Connection Details:"
+    Write-Host "  Target IP: $($info.PublicIP)"
+    Write-Host "  Username: $($info.AdminUsername)"
+    Write-Host "  SSH Key: $sshKey"
+    
+    # Test 1: DNS Resolution
+    Write-Info "`nTest 1: DNS Resolution"
+    try {
+        $dns = [System.Net.Dns]::GetHostAddresses($info.PublicIP)
+        Write-Success "IP address is valid: $($dns[0])"
+    } catch {
+        Write-Error "Failed to resolve IP address"
+        return
+    }
+    
+    # Test 2: Ping
+    Write-Info "`nTest 2: ICMP Ping (may be blocked by Azure)"
+    $ping = Test-Connection -ComputerName $info.PublicIP -Count 2 -Quiet 2>$null
+    if ($ping) {
+        Write-Success "Ping successful"
+    } else {
+        Write-Warning "Ping failed (this is often blocked in Azure and is normal)"
+    }
+    
+    # Test 3: Port 22 connectivity
+    Write-Info "`nTest 3: SSH Port (22) Connectivity"
+    $tcpTest = Test-NetConnection -ComputerName $info.PublicIP -Port 22 -WarningAction SilentlyContinue
+    if ($tcpTest.TcpTestSucceeded) {
+        Write-Success "Port 22 is open"
+        Write-Info "  Remote Address: $($tcpTest.RemoteAddress)"
+        Write-Info "  Remote Port: $($tcpTest.RemotePort)"
+    } else {
+        Write-Error "Port 22 is not accessible"
+        Write-Info "Check Network Security Group rules in Azure"
+        return
+    }
+    
+    # Test 4: SSH Key permissions
+    Write-Info "`nTest 4: SSH Key File Permissions"
+    if (Test-Path $sshKey) {
+        Write-Success "SSH key file exists"
+        $acl = Get-Acl $sshKey
+        Write-Info "  Owner: $($acl.Owner)"
+        Write-Info "  Permissions: $($acl.AccessToString)"
+    } else {
+        Write-Error "SSH key file not found: $sshKey"
+        return
+    }
+    
+    # Test 5: SSH connection with verbose output
+    Write-Info "`nTest 5: SSH Connection Test (verbose)"
+    Write-Info "Attempting SSH connection with verbose output..."
+    
+    $sshArgs = @(
+        "-vvv"
+        "-o", "StrictHostKeyChecking=no"
+        "-o", "ConnectTimeout=10"
+        "-i", $sshKey
+        "$($info.AdminUsername)@$($info.PublicIP)"
+        "echo 'SSH_TEST_SUCCESS'"
+    )
+    
+    Write-Info "Command: ssh $($sshArgs -join ' ')"
+    
+    $process = Start-Process -FilePath "ssh" -ArgumentList $sshArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput "ssh-test-output.txt" -RedirectStandardError "ssh-test-error.txt"
+    
+    if ($process.ExitCode -eq 0) {
+        Write-Success "SSH connection successful!"
+        if (Test-Path "ssh-test-output.txt") {
+            $output = Get-Content "ssh-test-output.txt"
+            if ($output -match "SSH_TEST_SUCCESS") {
+                Write-Success "Command execution successful"
+            }
+        }
+    } else {
+        Write-Error "SSH connection failed with exit code: $($process.ExitCode)"
+        Write-Info "Error details:"
+        if (Test-Path "ssh-test-error.txt") {
+            $errors = Get-Content "ssh-test-error.txt" | Select-Object -Last 20
+            $errors | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+        }
+    }
+    
+    # Cleanup
+    Remove-Item "ssh-test-output.txt", "ssh-test-error.txt" -ErrorAction SilentlyContinue
+    
+    Write-Info "`nTroubleshooting suggestions:"
+    Write-Info "1. Verify the VM is running: .\PHIS.ps1 -Command Status"
+    Write-Info "2. Check Azure Network Security Group for SSH rule"
+    Write-Info "3. Ensure the correct SSH key is being used"
+    Write-Info "4. Try manual connection: ssh -v -i `"$sshKey`" $($info.AdminUsername)@$($info.PublicIP)"
+}
+#endregion
+
 #region Main Command Processing
 function Process-Command {
     switch ($Command) {
@@ -878,20 +1225,44 @@ function Process-Command {
             $sshKey = Find-SSHPrivateKey -ProvidedPath $SSHKeyPath
             if (-not $sshKey) { return }
             
-            $retries = 5
-            while ($retries -gt 0) {
+            # Enhanced retry logic with exponential backoff
+            $maxRetries = 10
+            $retryCount = 0
+            $connected = $false
+            $baseDelay = 10
+            
+            Write-Info "Attempting to establish SSH connection..."
+            Write-Info "VM IP: $($info.PublicIP)"
+            Write-Info "Username: $($info.AdminUsername)"
+            Write-Info "SSH Key: $sshKey"
+            
+            while ($retryCount -lt $maxRetries -and -not $connected) {
+                $retryCount++
+                Write-Info "Connection attempt $retryCount of $maxRetries..."
+                
                 if (Test-SSHConnection -IPAddress $info.PublicIP -Username $info.AdminUsername -KeyPath $sshKey) {
+                    $connected = $true
                     break
                 }
-                $retries--
-                if ($retries -gt 0) {
-                    Write-Warning "SSH connection failed. Retrying in 10 seconds..."
-                    Start-Sleep -Seconds 10
+                
+                if ($retryCount -lt $maxRetries) {
+                    $delay = [Math]::Min($baseDelay * $retryCount, 60)
+                    Write-Warning "SSH connection failed. Retrying in $delay seconds..."
+                    Write-Info "Troubleshooting tips:"
+                    Write-Info "- Ensure the VM is running (check Azure portal)"
+                    Write-Info "- Verify network security group allows SSH (port 22)"
+                    Write-Info "- Check if the SSH key is correct"
+                    Start-Sleep -Seconds $delay
                 }
             }
             
-            if ($retries -eq 0) {
-                Write-Error "Could not establish SSH connection"
+            if (-not $connected) {
+                Write-Error "Could not establish SSH connection after $maxRetries attempts"
+                Write-Info "Troubleshooting steps:"
+                Write-Info "1. Check VM status: .\PHIS.ps1 -Command Status"
+                Write-Info "2. Verify VM is running in Azure portal"
+                Write-Info "3. Check Network Security Group rules"
+                Write-Info "4. Try connecting manually: ssh -i `"$sshKey`" $($info.AdminUsername)@$($info.PublicIP)"
                 return
             }
             
@@ -902,16 +1273,14 @@ function Process-Command {
                 try {
                     Invoke-SSHCommand -IPAddress $info.PublicIP -Username $info.AdminUsername -KeyPath $sshKey -Command "sudo reboot" -ShowOutput:$false
                 } catch {
-                    # This is expected as the connection will be terminated.
                     Write-Info "Reboot command issued. The SSH connection will be lost as expected."
                 }
 
                 Write-Info "Waiting for VM to restart (approximately 60 seconds)..."
                 Start-Sleep -Seconds 60
 
-                # Re-establish connection after reboot
                 Write-Info "Attempting to reconnect to the VM..."
-                $retries = 12 # Give it more time to come back up
+                $retries = 12
                 $connected = $false
                 while ($retries -gt 0) {
                     if (Test-SSHConnection -IPAddress $info.PublicIP -Username $info.AdminUsername -KeyPath $sshKey) {
@@ -921,7 +1290,7 @@ function Process-Command {
                     }
                     $retries--
                     if ($retries -gt 0) {
-                        Write-Info "VM not ready yet. Retrying in 10 seconds..."
+                        Write-Info "VM not ready yet. Retrying in 10 seconds... ($retries attempts remaining)"
                         Start-Sleep -Seconds 10
                     }
                 }
@@ -939,11 +1308,50 @@ function Process-Command {
         'FullInstall' {
             $info = Deploy-PHISVM
             if ($info) {
-                Write-Info "Waiting for VM to be ready..."
-                Start-Sleep -Seconds 30
+                Write-Info "VM deployed. Waiting for it to fully initialize..."
+                Write-Info "This typically takes 60-90 seconds..."
                 
-                $VMIPAddress = $info.PublicIP
-                & "$PSCommandPath" -Command Install -VMIPAddress $VMIPAddress
+                # Wait with progress indication
+                $totalWait = 60
+                for ($i = 0; $i -lt $totalWait; $i += 10) {
+                    Write-Host "." -NoNewline
+                    Start-Sleep -Seconds 10
+                }
+                Write-Host ""
+                
+                # Test if VM is accessible
+                Write-Info "Checking VM accessibility..."
+                $maxRetries = 6
+                $retryCount = 0
+                $vmReady = $false
+                
+                while ($retryCount -lt $maxRetries -and -not $vmReady) {
+                    $retryCount++
+                    Write-Info "Attempt $retryCount of $maxRetries..."
+                    
+                    # Test port 22
+                    $portTest = Test-NetConnection -ComputerName $info.PublicIP -Port 22 -WarningAction SilentlyContinue -InformationLevel Quiet
+                    
+                    if ($portTest) {
+                        Write-Success "VM is responding on port 22"
+                        $vmReady = $true
+                    } else {
+                        if ($retryCount -lt $maxRetries) {
+                            Write-Warning "VM not ready yet. Waiting 15 seconds before retry..."
+                            Start-Sleep -Seconds 15
+                        }
+                    }
+                }
+                
+                if ($vmReady) {
+                    Write-Success "VM is ready for installation"
+                    $VMIPAddress = $info.PublicIP
+                    & "$PSCommandPath" -Command Install -VMIPAddress $VMIPAddress
+                } else {
+                    Write-Error "VM failed to become accessible after deployment"
+                    Write-Info "You can try running the installation manually later with:"
+                    Write-Info "  .\PHIS.ps1 -Command Install -VMIPAddress $($info.PublicIP)"
+                }
             }
         }
         
@@ -983,13 +1391,29 @@ function Process-Command {
         }
         'OpenPorts' { Show-OpenPorts }
         'Logs' { Show-ServiceLogs }
+        'TestSSH' { Test-SSHConnectivity }
+        
+        'CreateUser' {
+            if ($UserEmail -and $UserFirstName -and $UserLastName -and $UserPassword) {
+                # Command line mode
+                New-PHISUser -Email $UserEmail -FirstName $UserFirstName -LastName $UserLastName `
+                           -Password $UserPassword -IsAdmin:$UserIsAdmin -Language $UserLanguage
+            } else {
+                # Interactive mode
+                Start-UserCreationWizard
+            }
+        }
+        
+        'ListUsers' {
+            Get-PHISUsers
+        }
         
         'Menu' {
             $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
             
             while ($true) {
                 Show-Menu
-                $choice = Read-Host "`nSelect option (0-13)"
+                $choice = Read-Host "`nSelect option (0-15)"
                 
                 switch ($choice) {
                     "1" { & "$PSCommandPath" -Command FullInstall }
@@ -1013,10 +1437,12 @@ function Process-Command {
                     }
                     "7" { & "$PSCommandPath" -Command Logs }
                     "8" { & "$PSCommandPath" -Command Delete }
-                    "9" { & "$PSCommandPath" -Command Diagnose }
-                    "10" { & "$PSCommandPath" -Command GenerateSSHKey }
-                    "11" { & "$PSCommandPath" -Command TestSSHKeys }
-                    "12" { 
+                    "9" { & "$PSCommandPath" -Command CreateUser }
+                    "10" { & "$PSCommandPath" -Command ListUsers }
+                    "11" { & "$PSCommandPath" -Command Diagnose }
+                    "12" { & "$PSCommandPath" -Command GenerateSSHKey }
+                    "13" { & "$PSCommandPath" -Command TestSSHKeys }
+                    "14" { 
                         if ($isAdmin) {
                             Install-Module -Name Az -Repository PSGallery -Force -AllowClobber
                             Write-Success "Azure module installed"
@@ -1025,7 +1451,7 @@ function Process-Command {
                             Write-Info "Install-Module -Name Az -Scope CurrentUser"
                         }
                     }
-                    "13" { & "$PSCommandPath" -Command ShowInfo }
+                    "15" { & "$PSCommandPath" -Command ShowInfo }
                     "0" { 
                         Write-Host "`nThank you for using PHIS Master Controller!" -ForegroundColor Green
                         return 
