@@ -1,4 +1,4 @@
-MENU@echo off
+@echo off
 REM PHIS Master Controller - Windows Launcher
 REM Double-click this file to start the PHIS installation and management system
 

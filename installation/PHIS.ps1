@@ -48,6 +48,12 @@
 .PARAMETER SkipDependencies
     Skip dependency installation
 
+.PARAMETER SkipSSHTest
+    Skip the SSH connection test and proceed with installation
+
+.PARAMETER SkipReboot
+    Skip the VM reboot after dependency installation
+
 .EXAMPLE
     .\PHIS.ps1
     # Opens interactive menu
@@ -85,6 +91,8 @@ param(
     [string]$TemplateFile = "template-vm.json",
     [switch]$SkipDependencies,
     [switch]$SkipPrerequisiteCheck,
+    [switch]$SkipSSHTest,
+    [switch]$SkipReboot,
     [switch]$DebugSSHKeys,
     [switch]$NoPassphrase,
     [string]$KeyType = "ed25519",
@@ -177,8 +185,72 @@ function Show-Menu {
 }
 #endregion
 
+#region Network Testing Functions
+function Test-Port {
+    param(
+        [string]$ComputerName,
+        [int]$Port,
+        [int]$Timeout = 3
+    )
+    
+    try {
+        $tcpClient = New-Object System.Net.Sockets.TcpClient
+        $connect = $tcpClient.BeginConnect($ComputerName, $Port, $null, $null)
+        $wait = $connect.AsyncWaitHandle.WaitOne($Timeout * 1000, $false)
+        
+        if ($wait) {
+            try {
+                $tcpClient.EndConnect($connect)
+                $tcpClient.Close()
+                return $true
+            }
+            catch {
+                return $false
+            }
+        }
+        else {
+            $tcpClient.Close()
+            return $false
+        }
+    }
+    catch {
+        return $false
+    }
+}
+#endregion
+
 #region SSH Key Functions
-function Find-SSHKeys {
+function Test-Port {
+    param(
+        [string]$ComputerName,
+        [int]$Port,
+        [int]$Timeout = 3
+    )
+    
+    try {
+        $tcpClient = New-Object System.Net.Sockets.TcpClient
+        $connect = $tcpClient.BeginConnect($ComputerName, $Port, $null, $null)
+        $wait = $connect.AsyncWaitHandle.WaitOne($Timeout * 1000, $false)
+        
+        if ($wait) {
+            try {
+                $tcpClient.EndConnect($connect)
+                $tcpClient.Close()
+                return $true
+            }
+            catch {
+                return $false
+            }
+        }
+        else {
+            $tcpClient.Close()
+            return $false
+        }
+    }
+    catch {
+        return $false
+    }
+}
     Write-Info "Searching for SSH public keys..."
     
     $sshPaths = @(
@@ -655,63 +727,72 @@ function Test-SSHConnection {
     param(
         [string]$IPAddress,
         [string]$Username,
-        [string]$KeyPath
+        [string]$KeyPath,
+        [switch]$Simple
     )
     
     Write-Info "Testing SSH connection to $IPAddress..."
     
-    # First try a simple port test
+    # First try a simple port test using our custom function
     Write-Info "Checking if SSH port 22 is open..."
-    $portTest = Test-NetConnection -ComputerName $IPAddress -Port 22 -WarningAction SilentlyContinue -InformationLevel Quiet
+    $portTest = Test-Port -ComputerName $IPAddress -Port 22 -Timeout 5
     
     if (-not $portTest) {
-        Write-Warning "SSH port 22 is not accessible yet"
+        Write-Warning "SSH port 22 is not accessible"
         return $false
     }
     
     Write-Success "SSH port 22 is open"
     
-    # Now test actual SSH connection with a timeout wrapper
+    # If simple mode, just return true if port is open
+    if ($Simple) {
+        Write-Info "Port is open, assuming SSH is ready (simple mode)"
+        return $true
+    }
+    
+    # Try a simpler SSH test without BatchMode
     $sshArgs = @(
         "-o", "StrictHostKeyChecking=no"
-        "-o", "ConnectTimeout=5"
-        "-o", "ServerAliveInterval=5"
-        "-o", "ServerAliveCountMax=2"
-        "-o", "BatchMode=yes"
+        "-o", "ConnectTimeout=10"
+        "-o", "UserKnownHostsFile=/dev/null"
         "-i", $KeyPath
         "$Username@$IPAddress"
         "echo CONNECTION_SUCCESS"
     )
     
     try {
-        # Use a job with timeout to prevent hanging
-        $job = Start-Job -ScriptBlock {
-            param($sshExe, $args)
-            & $sshExe $args 2>&1
-        } -ArgumentList (Get-Command ssh).Path, $sshArgs
+        Write-Info "Attempting SSH connection (this may take a few seconds)..."
         
-        $completed = Wait-Job -Job $job -Timeout 15
+        # Create a temporary file for output
+        $tempOut = [System.IO.Path]::GetTempFileName()
+        $tempErr = [System.IO.Path]::GetTempFileName()
         
-        if ($completed) {
-            $result = Receive-Job -Job $job
-            Remove-Job -Job $job -Force
-            
-            if ($result -match "CONNECTION_SUCCESS") {
-                Write-Success "SSH connection successful"
-                return $true
-            }
+        $process = Start-Process -FilePath "ssh" -ArgumentList $sshArgs `
+                                -NoNewWindow -Wait -PassThru `
+                                -RedirectStandardOutput $tempOut `
+                                -RedirectStandardError $tempErr
+        
+        $output = Get-Content $tempOut -ErrorAction SilentlyContinue
+        $errors = Get-Content $tempErr -ErrorAction SilentlyContinue
+        
+        # Clean up temp files
+        Remove-Item $tempOut, $tempErr -ErrorAction SilentlyContinue
+        
+        if ($process.ExitCode -eq 0 -or $output -match "CONNECTION_SUCCESS") {
+            Write-Success "SSH connection successful"
+            return $true
         } else {
-            Write-Warning "SSH connection timed out after 15 seconds"
-            Stop-Job -Job $job -Force
-            Remove-Job -Job $job -Force
-            return $false
+            Write-Warning "SSH connection test failed (exit code: $($process.ExitCode))"
+            if ($errors) {
+                Write-Info "SSH errors: $($errors | Select-Object -First 3 | Out-String)"
+            }
         }
     }
     catch {
-        Write-Warning "SSH connection test failed: $_"
+        Write-Warning "SSH connection test error: $_"
     }
     
-    Write-Warning "SSH connection failed"
+    Write-Warning "SSH connection test failed"
     return $false
 }
 
@@ -1071,8 +1152,7 @@ function Test-PHISInstallation {
             @{Port=8080; Name="HTTP Alt"},
             @{Port=80; Name="HTTP"}
         ) | ForEach-Object {
-            $tcpTest = Test-NetConnection -ComputerName $info.PublicIP -Port $_.Port -WarningAction SilentlyContinue
-            if ($tcpTest.TcpTestSucceeded) {
+            if (Test-Port -ComputerName $info.PublicIP -Port $_.Port -Timeout 3) {
                 Write-Success "  Port $($_.Port) ($($_.Name)): Open"
             } else {
                 Write-Warning "  Port $($_.Port) ($($_.Name)): Closed"
@@ -1135,11 +1215,9 @@ function Test-SSHConnectivity {
     
     # Test 3: Port 22 connectivity
     Write-Info "`nTest 3: SSH Port (22) Connectivity"
-    $tcpTest = Test-NetConnection -ComputerName $info.PublicIP -Port 22 -WarningAction SilentlyContinue
-    if ($tcpTest.TcpTestSucceeded) {
+    if (Test-Port -ComputerName $info.PublicIP -Port 22 -Timeout 5) {
         Write-Success "Port 22 is open"
-        Write-Info "  Remote Address: $($tcpTest.RemoteAddress)"
-        Write-Info "  Remote Port: $($tcpTest.RemotePort)"
+        Write-Info "  Target: $($info.PublicIP):22"
     } else {
         Write-Error "Port 22 is not accessible"
         Write-Info "Check Network Security Group rules in Azure"
@@ -1225,79 +1303,151 @@ function Process-Command {
             $sshKey = Find-SSHPrivateKey -ProvidedPath $SSHKeyPath
             if (-not $sshKey) { return }
             
-            # Enhanced retry logic with exponential backoff
-            $maxRetries = 10
-            $retryCount = 0
-            $connected = $false
-            $baseDelay = 10
-            
-            Write-Info "Attempting to establish SSH connection..."
+            Write-Info "Preparing to install PHIS..."
             Write-Info "VM IP: $($info.PublicIP)"
             Write-Info "Username: $($info.AdminUsername)"
             Write-Info "SSH Key: $sshKey"
             
-            while ($retryCount -lt $maxRetries -and -not $connected) {
-                $retryCount++
-                Write-Info "Connection attempt $retryCount of $maxRetries..."
-                
-                if (Test-SSHConnection -IPAddress $info.PublicIP -Username $info.AdminUsername -KeyPath $sshKey) {
-                    $connected = $true
-                    break
-                }
-                
-                if ($retryCount -lt $maxRetries) {
-                    $delay = [Math]::Min($baseDelay * $retryCount, 60)
-                    Write-Warning "SSH connection failed. Retrying in $delay seconds..."
-                    Write-Info "Troubleshooting tips:"
-                    Write-Info "- Ensure the VM is running (check Azure portal)"
-                    Write-Info "- Verify network security group allows SSH (port 22)"
-                    Write-Info "- Check if the SSH key is correct"
-                    Start-Sleep -Seconds $delay
-                }
+            # First, check if we can connect at all
+            Write-Info "`nChecking basic connectivity..."
+            $portOpen = Test-Port -ComputerName $info.PublicIP -Port 22 -Timeout 5
+            
+            if (-not $portOpen) {
+                Write-Error "Cannot reach SSH port 22 on $($info.PublicIP)"
+                Write-Info "Please ensure:"
+                Write-Info "1. The VM is running"
+                Write-Info "2. Network Security Group allows SSH (port 22)"
+                Write-Info "3. The IP address is correct"
+                return
             }
             
-            if (-not $connected) {
-                Write-Error "Could not establish SSH connection after $maxRetries attempts"
-                Write-Info "Troubleshooting steps:"
-                Write-Info "1. Check VM status: .\PHIS.ps1 -Command Status"
-                Write-Info "2. Verify VM is running in Azure portal"
-                Write-Info "3. Check Network Security Group rules"
-                Write-Info "4. Try connecting manually: ssh -i `"$sshKey`" $($info.AdminUsername)@$($info.PublicIP)"
-                return
+            Write-Success "Port 22 is accessible"
+            
+            # Ask user if they want to skip SSH test since manual connection works
+            if (-not $SkipSSHTest) {
+                Write-Warning "`nThe automated SSH test sometimes fails even when manual connection works."
+                Write-Info "If you can connect manually using option 5, you can skip the automated test."
+                $skipTest = Read-Host "Skip SSH connection test and proceed with installation? (Y/N)"
+            } else {
+                Write-Info "Skipping SSH test as requested..."
+                $skipTest = 'Y'
+            }
+            
+            $connected = $false
+            
+            if ($skipTest -eq 'Y') {
+                Write-Info "Skipping SSH test, proceeding with installation..."
+                $connected = $true
+            } else {
+                # Try connection test with retries
+                $maxRetries = 5
+                $retryCount = 0
+                
+                Write-Info "Attempting SSH connection test..."
+                
+                while ($retryCount -lt $maxRetries -and -not $connected) {
+                    $retryCount++
+                    Write-Info "Attempt $retryCount of $maxRetries..."
+                    
+                    # Use simple mode for testing
+                    if (Test-SSHConnection -IPAddress $info.PublicIP -Username $info.AdminUsername -KeyPath $sshKey -Simple) {
+                        $connected = $true
+                        break
+                    }
+                    
+                    if ($retryCount -lt $maxRetries) {
+                        Write-Warning "Connection test failed. Retrying in 10 seconds..."
+                        Start-Sleep -Seconds 10
+                    }
+                }
+                
+                if (-not $connected) {
+                    Write-Warning "Automated SSH test failed."
+                    Write-Info "However, if you can connect manually (option 5), the installation can still proceed."
+                    $proceed = Read-Host "Proceed with installation anyway? (Y/N)"
+                    
+                    if ($proceed -eq 'Y') {
+                        Write-Info "Proceeding with installation despite test failure..."
+                        $connected = $true
+                    } else {
+                        Write-Error "Installation cancelled."
+                        Write-Info "Try connecting manually first: .\PHIS.ps1 -Command Connect"
+                        return
+                    }
+                }
             }
             
             if (-not $SkipDependencies) {
                 Install-Dependencies -ConnectionInfo $info -KeyPath $sshKey
                 
-                Write-Warning "Rebooting the VM to apply dependency changes (e.g., Docker group membership)."
-                try {
-                    Invoke-SSHCommand -IPAddress $info.PublicIP -Username $info.AdminUsername -KeyPath $sshKey -Command "sudo reboot" -ShowOutput:$false
-                } catch {
-                    Write-Info "Reboot command issued. The SSH connection will be lost as expected."
-                }
-
-                Write-Info "Waiting for VM to restart (approximately 60 seconds)..."
-                Start-Sleep -Seconds 60
-
-                Write-Info "Attempting to reconnect to the VM..."
-                $retries = 12
-                $connected = $false
-                while ($retries -gt 0) {
-                    if (Test-SSHConnection -IPAddress $info.PublicIP -Username $info.AdminUsername -KeyPath $sshKey) {
-                        Write-Success "Successfully reconnected to the VM."
-                        $connected = $true
-                        break
+                if ($SkipReboot) {
+                    Write-Warning "Skipping reboot as requested. Docker may not work properly until VM is rebooted."
+                    Write-Info "To reboot manually later, run: .\PHIS.ps1 -Command Restart"
+                } else {
+                    Write-Warning "The VM needs to reboot to apply Docker group changes."
+                    $rebootChoice = Read-Host "Reboot VM now? (Y/N/S to skip reboot)"
+                    
+                    if ($rebootChoice -eq 'S') {
+                        Write-Warning "Skipping reboot. You may need to reboot manually later for Docker to work properly."
+                    } elseif ($rebootChoice -eq 'Y') {
+                        Write-Info "Rebooting VM..."
+                        try {
+                            Invoke-SSHCommand -IPAddress $info.PublicIP -Username $info.AdminUsername -KeyPath $sshKey -Command "sudo reboot" -ShowOutput:$false
+                        } catch {
+                            # Expected - connection will be lost
+                        }
+                        
+                        Write-Info "VM is rebooting. Waiting 30 seconds before checking..."
+                        Start-Sleep -Seconds 30
+                        
+                        Write-Info "Checking if VM is coming back online..."
+                        $maxWaitTime = 180  # 3 minutes total
+                        $checkInterval = 5
+                        $elapsed = 0
+                        $reconnected = $false
+                        
+                        while ($elapsed -lt $maxWaitTime) {
+                            # Use our custom Test-Port function instead of Test-NetConnection
+                            Write-Host "." -NoNewline
+                            
+                            if (Test-Port -ComputerName $info.PublicIP -Port 22 -Timeout 2) {
+                                Write-Host ""
+                                Write-Success "SSH port is accessible again!"
+                                $reconnected = $true
+                                
+                                # Give SSH service a moment to fully initialize
+                                Write-Info "Waiting 10 seconds for SSH service to fully start..."
+                                Start-Sleep -Seconds 10
+                                break
+                            }
+                            
+                            Start-Sleep -Seconds $checkInterval
+                            $elapsed += $checkInterval
+                            
+                            if ($elapsed % 30 -eq 0) {
+                                Write-Host ""
+                                Write-Info "Still waiting... ($elapsed seconds elapsed)"
+                            }
+                        }
+                        
+                        Write-Host ""
+                        
+                        if (-not $reconnected) {
+                            Write-Warning "VM did not come back online within $maxWaitTime seconds."
+                            Write-Info "The VM may still be restarting. You have several options:"
+                            Write-Info "1. Wait a bit longer and run: .\PHIS.ps1 -Command Install -VMIPAddress $($info.PublicIP) -SkipDependencies"
+                            Write-Info "2. Check VM status in Azure portal"
+                            Write-Info "3. Try connecting manually: .\PHIS.ps1 -Command Connect"
+                            
+                            $continueAnyway = Read-Host "`nContinue with installation anyway? (Y/N)"
+                            if ($continueAnyway -ne 'Y') {
+                                return
+                            }
+                        }
+                    } else {
+                        Write-Info "Reboot cancelled. Continuing with installation..."
+                        Write-Warning "Note: Docker commands may fail until the VM is rebooted."
                     }
-                    $retries--
-                    if ($retries -gt 0) {
-                        Write-Info "VM not ready yet. Retrying in 10 seconds... ($retries attempts remaining)"
-                        Start-Sleep -Seconds 10
-                    }
-                }
-
-                if (-not $connected) {
-                    Write-Error "Could not reconnect to the VM after reboot. Please check the VM status in Azure portal."
-                    return
                 }
             }
             
@@ -1312,7 +1462,7 @@ function Process-Command {
                 Write-Info "This typically takes 60-90 seconds..."
                 
                 # Wait with progress indication
-                $totalWait = 60
+                $totalWait = 90
                 for ($i = 0; $i -lt $totalWait; $i += 10) {
                     Write-Host "." -NoNewline
                     Start-Sleep -Seconds 10
@@ -1321,36 +1471,36 @@ function Process-Command {
                 
                 # Test if VM is accessible
                 Write-Info "Checking VM accessibility..."
-                $maxRetries = 6
-                $retryCount = 0
-                $vmReady = $false
+                $portOpen = Test-Port -ComputerName $info.PublicIP -Port 22 -Timeout 5
                 
-                while ($retryCount -lt $maxRetries -and -not $vmReady) {
-                    $retryCount++
-                    Write-Info "Attempt $retryCount of $maxRetries..."
+                if ($portOpen) {
+                    Write-Success "VM is responding on port 22"
                     
-                    # Test port 22
-                    $portTest = Test-NetConnection -ComputerName $info.PublicIP -Port 22 -WarningAction SilentlyContinue -InformationLevel Quiet
+                    # Note about SSH test issues
+                    Write-Warning "`nNote: The automated SSH test sometimes fails even when the VM is ready."
+                    Write-Info "If the installation fails at SSH connection, you can:"
+                    Write-Info "1. Verify you can connect manually: .\PHIS.ps1 -Command Connect"
+                    Write-Info "2. Run installation separately: .\PHIS.ps1 -Command Install -VMIPAddress $($info.PublicIP)"
+                    Write-Info "3. Use -SkipSSHTest flag to bypass the test"
                     
-                    if ($portTest) {
-                        Write-Success "VM is responding on port 22"
-                        $vmReady = $true
-                    } else {
-                        if ($retryCount -lt $maxRetries) {
-                            Write-Warning "VM not ready yet. Waiting 15 seconds before retry..."
-                            Start-Sleep -Seconds 15
-                        }
-                    }
-                }
-                
-                if ($vmReady) {
-                    Write-Success "VM is ready for installation"
+                    Start-Sleep -Seconds 3
+                    
+                    Write-Info "`nProceeding with installation..."
                     $VMIPAddress = $info.PublicIP
-                    & "$PSCommandPath" -Command Install -VMIPAddress $VMIPAddress
+                    
+                    # Pass through the SkipSSHTest flag if set
+                    if ($SkipSSHTest) {
+                        & "$PSCommandPath" -Command Install -VMIPAddress $VMIPAddress -SkipSSHTest
+                    } else {
+                        & "$PSCommandPath" -Command Install -VMIPAddress $VMIPAddress
+                    }
                 } else {
-                    Write-Error "VM failed to become accessible after deployment"
-                    Write-Info "You can try running the installation manually later with:"
-                    Write-Info "  .\PHIS.ps1 -Command Install -VMIPAddress $($info.PublicIP)"
+                    Write-Error "VM is not accessible on port 22 after deployment"
+                    Write-Info "This can happen if the VM is still initializing."
+                    Write-Info "`nYou can:"
+                    Write-Info "1. Wait a few minutes and check status: .\PHIS.ps1 -Command Status"
+                    Write-Info "2. Try manual connection: .\PHIS.ps1 -Command Connect"
+                    Write-Info "3. Run installation when ready: .\PHIS.ps1 -Command Install -VMIPAddress $($info.PublicIP)"
                 }
             }
         }
