@@ -82,8 +82,8 @@ param(
                  'TestSSHKeys', 'ShowInfo', 'GetIP', 'OpenPorts', 'Logs', 'CreateUser', 'ListUsers', 'TestSSH')]
     [string]$Command = 'Menu',
     
-    [string]$VMName = "phis",
-    [string]$ResourceGroupName = "RG-PHIS",
+    [string]$VMName = "phis-test",
+    [string]$ResourceGroupName = "RG-PHIS-TEST",
     [string]$VMIPAddress,
     [string]$Location = "westeurope",
     [string]$AdminUsername = "azureuser",
@@ -961,17 +961,18 @@ function New-PHISUser {
         return
     }
     
-    # Build the user creation command
-    $adminFlag = if ($IsAdmin) { "--admin=true" } else { "--admin=false" }
+    # Build the user creation command with correct admin flag syntax
+    # Note: --admin is a flag, not --admin=true
+    $adminFlag = if ($IsAdmin) { "--admin" } else { "" }
     
     $createUserCmd = @"
-sudo docker exec opensilex-docker-opensilexapp bash -c "/home/opensilex/bin/opensilex.sh user add \
+sudo docker exec opensilex-docker-opensilexapp ./bin/opensilex.sh user add \
     --email=$Email \
     --firstName=$FirstName \
     --lastName=$LastName \
-    --password=$Password \
+    --password=$Password \ed
     --lang=$Language \
-    $adminFlag"
+    $adminFlag
 "@
     
     Write-Info "Creating user: $Email"
