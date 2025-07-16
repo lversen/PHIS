@@ -950,31 +950,26 @@ function New-PHISUser {
     
     Write-Step "Creating PHIS User"
     
-    # Check if container is running
-    Write-Info "Checking if PHIS container is running..."
-    $checkCmd = "sudo docker ps | grep -q opensilex-docker-opensilexapp && echo 'RUNNING' || echo 'NOT_RUNNING'"
-    $containerStatus = Invoke-SSHCommand -IPAddress $info.PublicIP -Username $info.AdminUsername `
+    # Check if PHIS is running by checking the web interface
+    Write-Info "Checking if PHIS service is running..."
+    $checkCmd = "timeout 10 curl -s -o /dev/null -w '%{http_code}' http://localhost:28081/phis/app/ 2>/dev/null || echo 'Failed'"
+    $serviceStatus = Invoke-SSHCommand -IPAddress $info.PublicIP -Username $info.AdminUsername `
                                        -KeyPath $sshKey -Command $checkCmd -ShowOutput:$false
-    
-    if ($containerStatus -notmatch "RUNNING") {
-        Write-Error "PHIS container is not running. Please ensure the service is started."
+
+    if ($serviceStatus -notmatch "200") {
+        Write-Error "PHIS service is not responding. Please ensure the service is started and accessible."
         return
     }
     
-    # Build the user creation command with correct admin flag syntax
-    # Note: --admin is a flag, not --admin=true
-    $adminFlag = if ($IsAdmin) { "--admin" } else { "" }
-    
-    $createUserCmd = @"
-sudo docker exec opensilex-docker-opensilexapp ./bin/opensilex.sh user add \
-    --email=$Email \
-    --firstName=$FirstName \
-    --lastName=$LastName \
-    --password=$Password \ed
-    --lang=$Language \
-    $adminFlag
-"@
-    
+    # Construct the JSON payload
+    $groupsJson = if ($IsAdmin) { ',"groups":["ex:admins"]' } else { '' }
+    # Using "" to escape quotes inside a double-quoted string for the final command
+    $jsonPayload = "{""email"":""$Email"",""firstName"":""$FirstName"",""lastName"":""$LastName"",""password"":""$Password"",""language"":""$Language""$groupsJson}"
+
+    # Construct the curl command to be executed on the remote server
+    # We wrap the json payload in single quotes to prevent shell expansion on the remote side.
+    $createUserCmd = "curl -X POST 'http://localhost:8082/rest/user' -H 'accept: application/json' -H 'Content-Type: application/json' -d '$jsonPayload' --write-out '%{http_code}' --silent --output /dev/null"
+
     Write-Info "Creating user: $Email"
     Write-Info "Name: $FirstName $LastName"
     Write-Info "Admin: $IsAdmin"
@@ -982,9 +977,10 @@ sudo docker exec opensilex-docker-opensilexapp ./bin/opensilex.sh user add \
     
     # Execute the command
     $result = Invoke-SSHCommand -IPAddress $info.PublicIP -Username $info.AdminUsername `
-                               -KeyPath $sshKey -Command $createUserCmd
+                               -KeyPath $sshKey -Command $createUserCmd -ShowOutput:$false
     
-    if ($LASTEXITCODE -eq 0) {
+    # The result will be the HTTP status code
+    if ($result -match "201") { # 201 Created
         Write-Success "User created successfully!"
         
         if ($IsAdmin) {
@@ -994,7 +990,7 @@ sudo docker exec opensilex-docker-opensilexapp ./bin/opensilex.sh user add \
         Write-Info "`nThe user can now log in at:"
         Write-Host "  http://$($info.PublicIP):28081/phis/app/" -ForegroundColor Green
     } else {
-        Write-Error "Failed to create user. The user may already exist or there was an error."
+        Write-Error "Failed to create user. The user may already exist or there was an error. (Status: $result)"
     }
 }
 
