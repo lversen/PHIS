@@ -12,6 +12,7 @@
     - Diagnostics and troubleshooting
     - User account management
     - Interactive menu system
+    - SSH config file host selection
 
 .PARAMETER Command
     The command to execute:
@@ -29,6 +30,7 @@
     - TestSSH: Test SSH connectivity with detailed diagnostics
     - CreateUser: Create new PHIS user account
     - ListUsers: List all PHIS users
+    - SelectHost: Select host from SSH config
 
 .PARAMETER VMName
     Name of the VM (default: phis)
@@ -79,10 +81,11 @@
 param(
     [ValidateSet('Menu', 'Deploy', 'Install', 'FullInstall', 'Connect', 'Status', 
                  'Start', 'Stop', 'Restart', 'Delete', 'Diagnose', 'GenerateSSHKey', 
-                 'TestSSHKeys', 'ShowInfo', 'GetIP', 'OpenPorts', 'Logs', 'CreateUser', 'ListUsers', 'TestSSH')]
+                 'TestSSHKeys', 'ShowInfo', 'GetIP', 'OpenPorts', 'Logs', 'CreateUser', 
+                 'ListUsers', 'TestSSH', 'SelectHost')]
     [string]$Command = 'Menu',
     
-    [string]$VMName = "phis-test",
+    [string]$VMName = "phis-test-2",
     [string]$ResourceGroupName = "RG-PHIS-TEST",
     [string]$VMIPAddress,
     [string]$Location = "westeurope",
@@ -179,9 +182,115 @@ function Show-Menu {
     Write-Host " 13. " -NoNewline; Write-Host "Test SSH Keys" -ForegroundColor White
     Write-Host " 14. " -NoNewline; Write-Host "Install Azure PowerShell Module" -ForegroundColor White
     Write-Host " 15. " -NoNewline; Write-Host "Show VM Information" -ForegroundColor White
+    Write-Host " 16. " -NoNewline; Write-Host "Select Host from SSH Config" -ForegroundColor White
     
     Write-Host "`n  0. " -NoNewline; Write-Host "Exit" -ForegroundColor Red
     Write-Host "`n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Gray
+}
+#endregion
+
+#region SSH Config Functions
+function Get-SSHConfigHosts {
+    $sshConfigFile = "$env:USERPROFILE\.ssh\config"
+    if (-not (Test-Path $sshConfigFile)) {
+        $sshConfigFile = "$HOME/.ssh/config"
+    }
+    
+    if (-not (Test-Path $sshConfigFile)) {
+        Write-Warning "SSH config file not found"
+        return @()
+    }
+    
+    $hosts = @()
+    $currentHost = $null
+    
+    Get-Content $sshConfigFile | ForEach-Object {
+        $line = $_.Trim()
+        
+        if ($line -match "^Host\s+(.+)$") {
+            if ($currentHost) {
+                $hosts += $currentHost
+            }
+            $currentHost = @{
+                Name = $Matches[1]
+                HostName = ""
+                User = ""
+                Port = "22"
+                IdentityFile = ""
+            }
+        }
+        elseif ($currentHost) {
+            if ($line -match "^\s*HostName\s+(.+)$") {
+                $currentHost.HostName = $Matches[1]
+            }
+            elseif ($line -match "^\s*User\s+(.+)$") {
+                $currentHost.User = $Matches[1]
+            }
+            elseif ($line -match "^\s*Port\s+(.+)$") {
+                $currentHost.Port = $Matches[1]
+            }
+            elseif ($line -match "^\s*IdentityFile\s+(.+)$") {
+                $currentHost.IdentityFile = $Matches[1]
+            }
+        }
+    }
+    
+    if ($currentHost) {
+        $hosts += $currentHost
+    }
+    
+    return $hosts | Where-Object { $_.HostName -ne "" }
+}
+
+function Select-SSHHost {
+    Write-Step "Select Host from SSH Config"
+    
+    $hosts = Get-SSHConfigHosts
+    
+    if ($hosts.Count -eq 0) {
+        Write-Warning "No SSH hosts found in your config file"
+        return $null
+    }
+    
+    Write-Info "Available SSH Hosts:"
+    for ($i = 0; $i -lt $hosts.Count; $i++) {
+        Write-Host "[$($i+1)] $($hosts[$i].Name)"
+        Write-Host "     Hostname: $($hosts[$i].HostName)" -ForegroundColor Gray
+        if ($hosts[$i].User) {
+            Write-Host "     User: $($hosts[$i].User)" -ForegroundColor Gray
+        }
+    }
+    
+    do {
+        $selection = Read-Host "`nSelect host by number (0 to cancel)"
+        if ($selection -eq "0") {
+            return $null
+        }
+        
+        try {
+            $index = [int]$selection - 1
+            $valid = $index -ge 0 -and $index -lt $hosts.Count
+        } catch {
+            $valid = $false
+        }
+    } while (-not $valid)
+    
+    $selectedHost = $hosts[$index]
+    Write-Success "Selected host: $($selectedHost.Name) ($($selectedHost.HostName))"
+    
+    # Update connection info
+    $connectionInfo = @{
+        VMName = $selectedHost.Name
+        PublicIP = $selectedHost.HostName
+        AdminUsername = if ($selectedHost.User) { $selectedHost.User } else { $AdminUsername }
+        SSHKeyPath = if ($selectedHost.IdentityFile) { $selectedHost.IdentityFile } else { $null }
+        Port = $selectedHost.Port
+        FromSSHConfig = $true
+    }
+    
+    $connectionInfo | ConvertTo-Json | Out-File $script:ConnectionInfoFile
+    
+    return $connectionInfo
 }
 #endregion
 
@@ -220,38 +329,6 @@ function Test-Port {
 #endregion
 
 #region SSH Key Functions
-function Test-Port {
-    param(
-        [string]$ComputerName,
-        [int]$Port,
-        [int]$Timeout = 3
-    )
-    
-    try {
-        $tcpClient = New-Object System.Net.Sockets.TcpClient
-        $connect = $tcpClient.BeginConnect($ComputerName, $Port, $null, $null)
-        $wait = $connect.AsyncWaitHandle.WaitOne($Timeout * 1000, $false)
-        
-        if ($wait) {
-            try {
-                $tcpClient.EndConnect($connect)
-                $tcpClient.Close()
-                return $true
-            }
-            catch {
-                return $false
-            }
-        }
-        else {
-            $tcpClient.Close()
-            return $false
-        }
-    }
-    catch {
-        return $false
-    }
-}
-
 function Find-SSHKeys {
     Write-Info "Searching for SSH public keys..."
     
@@ -862,7 +939,8 @@ function Install-PHIS {
     Write-Info "Downloading installer scripts..."
     $downloadCmd = @"
 wget -q -O ~/openSILEX-installer.sh '$script:InstallerScriptURL' && chmod +x ~/openSILEX-installer.sh && 
-wget -q -O ~/opensilex-manager.sh '$script:ManagerScriptURL' && chmod +x ~/opensilex-manager.sh
+wget -q -O ~/opensilex-manager.sh '$script:ManagerScriptURL' && chmod +x ~/opensilex-manager.sh &&
+wget -q -O ~/create-opensilex-user.sh 'https://raw.githubusercontent.com/lversen/PHIS/main/create-opensilex-user.sh' && chmod +x ~/create-opensilex-user.sh
 "@
     
     Invoke-SSHCommand -IPAddress $ConnectionInfo.PublicIP -Username $ConnectionInfo.AdminUsername `
@@ -950,26 +1028,30 @@ function New-PHISUser {
     
     Write-Step "Creating PHIS User"
     
-    # Check if PHIS is running by checking the web interface
-    Write-Info "Checking if PHIS service is running..."
-    $checkCmd = "timeout 10 curl -s -o /dev/null -w '%{http_code}' http://localhost:28081/phis/app/ 2>/dev/null || echo 'Failed'"
-    $serviceStatus = Invoke-SSHCommand -IPAddress $info.PublicIP -Username $info.AdminUsername `
+    # Check if container is running
+    Write-Info "Checking if PHIS container is running..."
+    $checkCmd = "sudo docker ps | grep -q opensilex-docker-opensilexapp && echo 'RUNNING' || echo 'NOT_RUNNING'"
+    $containerStatus = Invoke-SSHCommand -IPAddress $info.PublicIP -Username $info.AdminUsername `
                                        -KeyPath $sshKey -Command $checkCmd -ShowOutput:$false
-
-    if ($serviceStatus -notmatch "200") {
-        Write-Error "PHIS service is not responding. Please ensure the service is started and accessible."
+    
+    if ($containerStatus -notmatch "RUNNING") {
+        Write-Error "PHIS container is not running. Please ensure the service is started."
         return
     }
     
-    # Construct the JSON payload
-    $groupsJson = if ($IsAdmin) { ',"groups":["ex:admins"]' } else { '' }
-    # Using "" to escape quotes inside a double-quoted string for the final command
-    $jsonPayload = "{""email"":""$Email"",""firstName"":""$FirstName"",""lastName"":""$LastName"",""password"":""$Password"",""language"":""$Language""$groupsJson}"
-
-    # Construct the curl command to be executed on the remote server
-    # We wrap the json payload in single quotes to prevent shell expansion on the remote side.
-    $createUserCmd = "curl -X POST 'http://localhost:8082/rest/user' -H 'accept: application/json' -H 'Content-Type: application/json' -d '$jsonPayload' --write-out '%{http_code}' --silent --output /dev/null"
-
+    # Construct the Docker command to create user
+    $adminFlag = if ($IsAdmin) { "--admin" } else { "" }
+    
+    $createUserCmd = @"
+sudo docker exec opensilex-docker-opensilexapp bash -c '/home/opensilex/bin/opensilex.sh user add \
+  --email=$Email \
+  --firstName=$FirstName \
+  --lastName=$LastName \
+  --password=$Password \
+  --lang=$Language \
+  $adminFlag'
+"@
+    
     Write-Info "Creating user: $Email"
     Write-Info "Name: $FirstName $LastName"
     Write-Info "Admin: $IsAdmin"
@@ -977,10 +1059,9 @@ function New-PHISUser {
     
     # Execute the command
     $result = Invoke-SSHCommand -IPAddress $info.PublicIP -Username $info.AdminUsername `
-                               -KeyPath $sshKey -Command $createUserCmd -ShowOutput:$false
+                               -KeyPath $sshKey -Command $createUserCmd
     
-    # The result will be the HTTP status code
-    if ($result -match "201") { # 201 Created
+    if ($LASTEXITCODE -eq 0) {
         Write-Success "User created successfully!"
         
         if ($IsAdmin) {
@@ -990,7 +1071,7 @@ function New-PHISUser {
         Write-Info "`nThe user can now log in at:"
         Write-Host "  http://$($info.PublicIP):28081/phis/app/" -ForegroundColor Green
     } else {
-        Write-Error "Failed to create user. The user may already exist or there was an error. (Status: $result)"
+        Write-Error "Failed to create user. The user may already exist or there was an error."
     }
 }
 
@@ -1541,6 +1622,7 @@ function Process-Command {
         'OpenPorts' { Show-OpenPorts }
         'Logs' { Show-ServiceLogs }
         'TestSSH' { Test-SSHConnectivity }
+        'SelectHost' { Select-SSHHost }
         
         'CreateUser' {
             if ($UserEmail -and $UserFirstName -and $UserLastName -and $UserPassword) {
@@ -1562,13 +1644,25 @@ function Process-Command {
             
             while ($true) {
                 Show-Menu
-                $choice = Read-Host "`nSelect option (0-15)"
+                $choice = Read-Host "`nSelect option (0-16)"
                 
                 switch ($choice) {
                     "1" { & "$PSCommandPath" -Command FullInstall }
                     "2" { 
-                        $ip = Read-Host "Enter VM IP address"
-                        & "$PSCommandPath" -Command Install -VMIPAddress $ip
+                        Write-Info "Choose host selection method:"
+                        Write-Host "1. Enter IP address manually"
+                        Write-Host "2. Select from SSH config file"
+                        $method = Read-Host "`nSelect method (1-2)"
+                        
+                        if ($method -eq "2") {
+                            $hostInfo = Select-SSHHost
+                            if ($hostInfo) {
+                                & "$PSCommandPath" -Command Install
+                            }
+                        } else {
+                            $ip = Read-Host "Enter VM IP address"
+                            & "$PSCommandPath" -Command Install -VMIPAddress $ip
+                        }
                     }
                     "3" { & "$PSCommandPath" -Command Deploy }
                     "4" { & "$PSCommandPath" -Command Status }
@@ -1601,6 +1695,7 @@ function Process-Command {
                         }
                     }
                     "15" { & "$PSCommandPath" -Command ShowInfo }
+                    "16" { & "$PSCommandPath" -Command SelectHost }
                     "0" { 
                         Write-Host "`nThank you for using PHIS Master Controller!" -ForegroundColor Green
                         return 
