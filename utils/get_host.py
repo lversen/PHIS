@@ -47,10 +47,34 @@ class SSHConfigParser:
                     hostname = selected_host.get('hostname')
                     if hostname:
                         print(f"Selected host: {selected_host_name} (IP: {hostname})")
-                        return hostname + ":28081"
+                        return hostname
                     else:
                         print(f"Host '{selected_host_name}' does not have a 'Hostname' defined.")
                 else:
                     print("Invalid choice. Please enter a valid number.")
             except ValueError:
                 print("Invalid input. Please enter a number.")
+
+def get_api_host_url(interactive_host_selection=False):
+    if not interactive_host_selection:
+        return None
+
+    print("--- Interactive Host Selection ---")
+    try:
+        parser = SSHConfigParser()
+        selected_ip = parser.select_host_ip()
+        if selected_ip:
+            host_to_use = f"http://{selected_ip}:28081/rest"
+            print(f"Using selected host: {host_to_use}")
+            return host_to_use
+        else:
+            print("No host selected or found. Falling back to default host.")
+            return None
+    except FileNotFoundError:
+        print("SSH config file not found. Falling back to default host.")
+        return None
+    except Exception as e:
+        print(f"An error occurred during host selection: {e}. Falling back to default host.")
+        return None
+    finally:
+        print("---------------------------------")

@@ -574,7 +574,7 @@ For easier service management, download and use the manager script:
 
 ```bash
 # Download the manager script
-wget https://raw.githubusercontent.com/lversen/PHIS/main/opensilex-manager.sh
+wget https://raw.githubusercontent.com/lversen/PHIS/main/installation/opensilex-manager.sh
 
 # Or copy from your local machine to the VM:
 # From Windows PowerShell: scp opensilex-manager.sh azureuser@YOUR_VM_IP:~/

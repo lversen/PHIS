@@ -28,15 +28,16 @@ General Usage Pattern:
 import sys
 import os
 
-# Add the 'python-client' directory to the python path for imports
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'generated-python-client')))
+# Add the generated_python_client directory to the python path for imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'generated_python_client')))
 
 
 import swagger_client
-from swagger_client.api import AuthenticationApi
-from swagger_client.models import AuthenticationDTO
+from swagger_client.api.authentication_api import AuthenticationApi
+from swagger_client.models.authentication_dto import AuthenticationDTO
+from swagger_client.models.token_get_dto import TokenGetDTO
 from swagger_client.rest import ApiException
-from get_host import SSHConfigParser # Import the SSH config parser
+from utils.get_host import get_api_host_url # Import the interactive host selector
 
 # --- Configuration ---
 # TODO: Replace these placeholder values with your actual API host and credentials.
@@ -46,7 +47,7 @@ API_USER = "admin@opensilex.org"
 API_PASSWORD = "admin"
 
 
-def authenticate_and_get_client(interactive_host_selection=False):
+def authenticate_and_get_client():
     """
     Authenticates with the API using credentials and returns a configured client.
 
@@ -55,38 +56,22 @@ def authenticate_and_get_client(interactive_host_selection=False):
     2. If authentication is successful, it uses the received token to create
        a second, fully authenticated client for subsequent API calls.
 
-    Args:
-        interactive_host_selection (bool): If True, prompts the user to select
-                                           a host from their ~/.ssh/config file.
-
     Returns:
         tuple: A tuple containing the authenticated `ApiClient` and the access 
                token, or `(None, None)` if authentication fails.
     """
     
     host_to_use = API_HOST
-    if interactive_host_selection:
-        print("--- Interactive Host Selection ---")
-        try:
-            parser = SSHConfigParser()
-            selected_ip = parser.select_host_ip()
-            if selected_ip:
-                host_to_use = f"http://{selected_ip}/rest"
-                print(f"Using selected host: {host_to_use}")
-            else:
-                print("No host selected or found. Falling back to default host.")
-        except FileNotFoundError:
-            print("SSH config file not found. Falling back to default host.")
-        except Exception as e:
-            print(f"An error occurred during host selection: {e}. Falling back to default host.")
-        print("---------------------------------")
+    selected_host = get_api_host_url(interactive_host_selection=True)
+    if selected_host:
+        host_to_use = selected_host
 
 
     # Step 1: Create a basic, unauthenticated client for the login request.
     unauthenticated_config = swagger_client.Configuration()
     unauthenticated_config.host = host_to_use
     unauthenticated_client = swagger_client.ApiClient(unauthenticated_config)
-    
+
     auth_api = AuthenticationApi(unauthenticated_client)
     
     print(f"Attempting to authenticate user '{API_USER}' at host: {host_to_use}")
@@ -94,10 +79,10 @@ def authenticate_and_get_client(interactive_host_selection=False):
     try:
         # Step 2: Call the authenticate endpoint with user credentials.
         auth_dto = AuthenticationDTO(identifier=API_USER, password=API_PASSWORD)
-        
+        print(TokenGetDTO(identifier=API_USER, password=API_PASSWORD))
+        print(auth_dto)
         # The authenticate method returns a TokenGetDTO
         token_dto = auth_api.authenticate(body=auth_dto)
-        
         access_token = token_dto.token
         print("Successfully authenticated and received access token.")
 
@@ -132,7 +117,7 @@ def main():
     
     # 1. Get the authenticated API client using interactive host selection.
     #    Set to False to use the default API_HOST from the config section.
-    api_client, _ = authenticate_and_get_client(interactive_host_selection=True)
+    api_client, _ = authenticate_and_get_client()
     print("API Client created successfully." if api_client else "Failed to create API Client.")
     print("\n--- Example Finished ---")
 
