@@ -3,13 +3,12 @@ This script demonstrates how to renew an access token.
 """
 import sys
 import os
-import swagger_client
 
 # Add the project root to the python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'utils')))
 
-from utils.api_connection import authenticate_and_get_client
+import swagger_client
+from authenticate import authenticate_and_get_client
 
 def main():
     """
