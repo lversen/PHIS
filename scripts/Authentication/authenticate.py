@@ -91,18 +91,18 @@ def authenticate_and_get_client(host=None, username=None, password=None):
         tuple: A tuple of (authenticated_client, access_token), or (None, None)
                if authentication fails.
     """
-    host_to_use = host or API_HOST
     user_to_use = username or API_USER
     password_to_use = password or API_PASSWORD
 
     # Get a basic client to make the authentication call
-    unauthenticated_client = get_unauthenticated_client(host=host_to_use)
+    unauthenticated_client = get_unauthenticated_client(host=host)
     if not unauthenticated_client:
         return None, None
 
+    host_used = unauthenticated_client.configuration.host
     auth_api = AuthenticationApi(unauthenticated_client)
     
-    print(f"Attempting to authenticate user '{API_USER}' at host: {host_to_use}")
+    print(f"Attempting to authenticate user '{API_USER}' at host: {host_used}")
 
     try:
         # Step 2: Call the authenticate endpoint with user credentials.
@@ -114,7 +114,7 @@ def authenticate_and_get_client(host=None, username=None, password=None):
 
         # Step 3: Create a new configuration with the received bearer token.
         authenticated_config = swagger_client.Configuration()
-        authenticated_config.host = host_to_use
+        authenticated_config.host = host_used
         authenticated_config.api_key['Authorization'] = access_token
         authenticated_config.api_key_prefix['Authorization'] = 'Bearer'
 
