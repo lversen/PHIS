@@ -135,414 +135,6 @@ function Write-Step {
 }
 #endregion
 
-#region Enhanced SSH Config Functions
-function Get-SSHConfigHosts {
-    <#
-    .SYNOPSIS
-    Parses SSH config file and returns host configurations
-    
-    .DESCRIPTION
-    Similar to Python's SSHConfigParser, extracts host entries with their properties
-    #>
-    
-    # Try multiple possible locations for SSH config
-    $sshConfigPaths = @(
-        "$env:USERPROFILE\.ssh\config",
-        "$HOME/.ssh/config",
-        "$env:HOMEDRIVE$env:HOMEPATH\.ssh\config"
-    )
-    
-    $sshConfigFile = $null
-    foreach ($path in $sshConfigPaths) {
-        if (Test-Path $path) {
-            $sshConfigFile = $path
-            break
-        }
-    }
-    
-    if (-not $sshConfigFile) {
-        Write-Warning "SSH config file not found in common locations"
-        return @()
-    }
-    
-    Write-Info "Reading SSH config from: $sshConfigFile"
-    
-    $hosts = @()
-    $currentHost = $null
-    
-    Get-Content $sshConfigFile | ForEach-Object {
-        $line = $_.Trim()
-        
-        # Skip comments and empty lines
-        if ([string]::IsNullOrWhiteSpace($line) -or $line.StartsWith('#')) {
-            return
-        }
-        
-        if ($line -match "^Host\s+(.+)$") {
-            # Save previous host if exists
-            if ($currentHost -and $currentHost.HostName) {
-                $hosts += $currentHost
-            }
-            
-            # Start new host
-            $hostNames = $Matches[1] -split '\s+'
-            $currentHost = @{
-                Name = $hostNames[0]  # Use first name if multiple
-                HostName = ""
-                User = ""
-                Port = "22"
-                IdentityFile = ""
-                AllNames = $hostNames
-            }
-        }
-        elseif ($currentHost) {
-            # Parse host properties
-            if ($line -match "^\s*HostName\s+(.+)$") {
-                $currentHost.HostName = $Matches[1].Trim()
-            }
-            elseif ($line -match "^\s*User\s+(.+)$") {
-                $currentHost.User = $Matches[1].Trim()
-            }
-            elseif ($line -match "^\s*Port\s+(.+)$") {
-                $currentHost.Port = $Matches[1].Trim()
-            }
-            elseif ($line -match "^\s*IdentityFile\s+(.+)$") {
-                $identityFile = $Matches[1].Trim()
-                # Expand ~ to home directory
-                if ($identityFile.StartsWith("~")) {
-                    $identityFile = $identityFile -replace "^~", $env:USERPROFILE
-                }
-                $currentHost.IdentityFile = $identityFile
-            }
-        }
-    }
-    
-    # Don't forget the last host
-    if ($currentHost -and $currentHost.HostName) {
-        $hosts += $currentHost
-    }
-    
-    # Filter out wildcards and entries without hostname
-    return $hosts | Where-Object { 
-        $_.HostName -and 
-        -not $_.Name.Contains("*") -and
-        $_.HostName -ne "*"
-    }
-}
-
-function Select-SSHHost {
-    <#
-    .SYNOPSIS
-    Interactive SSH host selection from config file
-    
-    .DESCRIPTION
-    Provides an interactive menu to select a host from SSH config,
-    similar to the Python get_host.py functionality
-    
-    .PARAMETER Purpose
-    Optional description of why we're selecting a host
-    
-    .PARAMETER FilterPattern
-    Optional pattern to filter hosts by name
-    #>
-    param(
-        [string]$Purpose = "Select SSH Host",
-        [string]$FilterPattern = ""
-    )
-    
-    Write-Step $Purpose
-    
-    $hosts = Get-SSHConfigHosts
-    
-    if ($hosts.Count -eq 0) {
-        Write-Warning "No SSH hosts found in your config file"
-        Write-Info "Make sure you have a valid ~/.ssh/config file with Host entries"
-        return $null
-    }
-    
-    # Apply filter if provided
-    if ($FilterPattern) {
-        $hosts = $hosts | Where-Object { $_.Name -like "*$FilterPattern*" }
-        if ($hosts.Count -eq 0) {
-            Write-Warning "No hosts match the filter pattern: $FilterPattern"
-            return $null
-        }
-    }
-    
-    Write-Info "Available SSH Hosts:"
-    Write-Host ""
-    
-    # Display hosts in a formatted table
-    for ($i = 0; $i -lt $hosts.Count; $i++) {
-        $host = $hosts[$i]
-        $num = ($i + 1).ToString().PadLeft(2)
-        
-        Write-Host "[$num] " -NoNewline -ForegroundColor Cyan
-        Write-Host "$($host.Name.PadRight(25))" -NoNewline -ForegroundColor White
-        Write-Host " → " -NoNewline -ForegroundColor Gray
-        Write-Host "$($host.HostName)" -ForegroundColor Yellow
-        
-        # Show additional details
-        $details = @()
-        if ($host.User) { $details += "User: $($host.User)" }
-        if ($host.Port -ne "22") { $details += "Port: $($host.Port)" }
-        if ($host.IdentityFile) { 
-            $keyFile = Split-Path -Leaf $host.IdentityFile
-            $details += "Key: $keyFile" 
-        }
-        
-        if ($details) {
-            Write-Host ("     " + ($details -join ", ")) -ForegroundColor Gray
-        }
-    }
-    
-    Write-Host ""
-    
-    do {
-        $selection = Read-Host "Select host by number (1-$($hosts.Count), 0 to cancel)"
-        
-        if ($selection -eq "0") {
-            Write-Info "Selection cancelled"
-            return $null
-        }
-        
-        try {
-            $index = [int]$selection - 1
-            $valid = $index -ge 0 -and $index -lt $hosts.Count
-        } catch {
-            $valid = $false
-        }
-        
-        if (-not $valid) {
-            Write-Warning "Invalid selection. Please enter a number between 1 and $($hosts.Count)"
-        }
-    } while (-not $valid)
-    
-    $selectedHost = $hosts[$index]
-    Write-Success "Selected host: $($selectedHost.Name) ($($selectedHost.HostName))"
-    
-    return $selectedHost
-}
-
-function Get-ConnectionInfoFromSSHConfig {
-    <#
-    .SYNOPSIS
-    Gets connection info by selecting from SSH config
-    
-    .DESCRIPTION
-    Allows user to select a host from SSH config and returns
-    connection info in the standard format
-    #>
-    param(
-        [string]$Purpose = "Select PHIS VM from SSH Config"
-    )
-    
-    $sshHost = Select-SSHHost -Purpose $Purpose -FilterPattern "phis"
-    
-    if (-not $sshHost) {
-        return $null
-    }
-    
-    # Convert SSH config host to connection info format
-    $connectionInfo = @{
-        VMName = $sshHost.Name
-        PublicIP = $sshHost.HostName
-        AdminUsername = if ($sshHost.User) { $sshHost.User } else { $AdminUsername }
-        SSHKeyPath = $sshHost.IdentityFile
-        Port = $sshHost.Port
-        FromSSHConfig = $true
-        ResourceGroup = "Unknown"  # Can't determine from SSH config
-    }
-    
-    # Optionally save as current connection
-    $save = Read-Host "Save as current PHIS connection? (Y/N)"
-    if ($save -eq 'Y') {
-        $connectionInfo | ConvertTo-Json | Out-File $script:ConnectionInfoFile
-        Write-Success "Connection info saved"
-    }
-    
-    return $connectionInfo
-}
-
-function Get-ConnectionInfo {
-    <#
-    .SYNOPSIS
-    Enhanced connection info retrieval with SSH config support
-    
-    .DESCRIPTION
-    Tries multiple sources for connection info:
-    1. Command line parameter (VMIPAddress)
-    2. Saved connection file
-    3. Interactive SSH config selection
-    4. Manual IP entry
-    #>
-    
-    # Priority 1: Direct IP address parameter
-    if ($VMIPAddress) {
-        Write-Info "Using provided IP address: $VMIPAddress"
-        return @{
-            PublicIP = $VMIPAddress
-            AdminUsername = $AdminUsername
-            VMName = $VMName
-            ResourceGroup = $ResourceGroupName
-            SSHKeyPath = $SSHKeyPath
-        }
-    }
-    
-    # Priority 2: Saved connection file
-    if (Test-Path $script:ConnectionInfoFile) {
-        $savedInfo = Get-Content $script:ConnectionInfoFile | ConvertFrom-Json
-        
-        # Check if it's still valid
-        if ($savedInfo.PublicIP) {
-            Write-Info "Using saved connection info for: $($savedInfo.VMName)"
-            Write-Info "IP: $($savedInfo.PublicIP)"
-            
-            $useExisting = Read-Host "Use this connection? (Y/N/S for SSH config)"
-            if ($useExisting -eq 'Y') {
-                return $savedInfo
-            }
-            elseif ($useExisting -ne 'S') {
-                # User said no, but not SSH config, so continue to other options
-            }
-        }
-    }
-    
-    # Priority 3: SSH config selection
-    Write-Info "No connection info provided. Choose connection method:"
-    Write-Host "1. Select from SSH config"
-    Write-Host "2. Enter IP address manually"
-    Write-Host "3. Search Azure for PHIS VMs"
-    Write-Host "0. Cancel"
-    
-    $choice = Read-Host "Select option (0-3)"
-    
-    switch ($choice) {
-        "1" {
-            return Get-ConnectionInfoFromSSHConfig
-        }
-        "2" {
-            $ip = Read-Host "Enter VM IP address"
-            if ($ip) {
-                return @{
-                    PublicIP = $ip
-                    AdminUsername = $AdminUsername
-                    VMName = "manual-entry"
-                    ResourceGroup = "Unknown"
-                }
-            }
-        }
-        "3" {
-            # Try to find PHIS VMs in Azure
-            if (Connect-AzureAccount) {
-                Write-Info "Searching for PHIS VMs in Azure..."
-                $vms = Get-AzVM | Where-Object { $_.Name -like "*phis*" }
-                
-                if ($vms.Count -eq 0) {
-                    Write-Warning "No VMs with 'phis' in name found"
-                }
-                elseif ($vms.Count -eq 1) {
-                    $vm = $vms[0]
-                    $publicIP = (Get-AzPublicIpAddress -ResourceGroupName $vm.ResourceGroupName | 
-                               Where-Object { $_.Name -like "*$($vm.Name)*" }).IpAddress
-                    
-                    if ($publicIP) {
-                        Write-Success "Found VM: $($vm.Name) with IP: $publicIP"
-                        return @{
-                            VMName = $vm.Name
-                            ResourceGroup = $vm.ResourceGroupName
-                            PublicIP = $publicIP
-                            AdminUsername = $AdminUsername
-                        }
-                    }
-                }
-                else {
-                    Write-Info "Found multiple PHIS VMs:"
-                    for ($i = 0; $i -lt $vms.Count; $i++) {
-                        Write-Host "[$($i+1)] $($vms[$i].Name) (RG: $($vms[$i].ResourceGroupName))"
-                    }
-                    
-                    $selection = Read-Host "Select VM (1-$($vms.Count))"
-                    $index = [int]$selection - 1
-                    
-                    if ($index -ge 0 -and $index -lt $vms.Count) {
-                        $vm = $vms[$index]
-                        $publicIP = (Get-AzPublicIpAddress -ResourceGroupName $vm.ResourceGroupName | 
-                                   Where-Object { $_.Name -like "*$($vm.Name)*" }).IpAddress
-                        
-                        if ($publicIP) {
-                            return @{
-                                VMName = $vm.Name
-                                ResourceGroup = $vm.ResourceGroupName
-                                PublicIP = $publicIP
-                                AdminUsername = $AdminUsername
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        "0" {
-            Write-Info "Operation cancelled"
-            return $null
-        }
-    }
-    
-    Write-Error "No connection information available"
-    return $null
-}
-
-function Connect-VM {
-    <#
-    .SYNOPSIS
-    Enhanced VM connection with SSH config support
-    #>
-    
-    $info = Get-ConnectionInfo
-    if (-not $info) {
-        Write-Error "No connection info available"
-        return
-    }
-    
-    # Determine SSH key
-    $sshKey = $null
-    if ($info.SSHKeyPath) {
-        # Use SSH key from connection info (e.g., from SSH config)
-        $sshKey = $info.SSHKeyPath
-    } else {
-        # Find SSH key using existing logic
-        $sshKey = Find-SSHPrivateKey -ProvidedPath $SSHKeyPath
-    }
-    
-    if (-not $sshKey) {
-        Write-Error "No SSH key found"
-        return
-    }
-    
-    # Build SSH command
-    $sshArgs = @()
-    
-    # Add port if not default
-    if ($info.Port -and $info.Port -ne "22") {
-        $sshArgs += @("-p", $info.Port)
-    }
-    
-    # Add identity file
-    $sshArgs += @("-i", "`"$sshKey`"")
-    
-    # Add connection string
-    $sshArgs += "$($info.AdminUsername)@$($info.PublicIP)"
-    
-    $sshCommand = "ssh $($sshArgs -join ' ')"
-    
-    Write-Info "Connecting to VM: $($info.VMName)"
-    Write-Success "Executing: $sshCommand"
-    
-    # Use Invoke-Expression to handle quoted paths properly
-    Invoke-Expression $sshCommand
-}
-#endregion
-
 #region Banner Functions
 function Show-Banner {
     Clear-Host
@@ -597,6 +189,110 @@ function Show-Menu {
 }
 #endregion
 
+#region SSH Config Functions
+function Get-SSHConfigHosts {
+    $sshConfigFile = "$env:USERPROFILE\.ssh\config"
+    if (-not (Test-Path $sshConfigFile)) {
+        $sshConfigFile = "$HOME/.ssh/config"
+    }
+    
+    if (-not (Test-Path $sshConfigFile)) {
+        Write-Warning "SSH config file not found"
+        return @()
+    }
+    
+    $hosts = @()
+    $currentHost = $null
+    
+    Get-Content $sshConfigFile | ForEach-Object {
+        $line = $_.Trim()
+        
+        if ($line -match "^Host\s+(.+)$") {
+            if ($currentHost) {
+                $hosts += $currentHost
+            }
+            $currentHost = @{
+                Name = $Matches[1]
+                HostName = ""
+                User = ""
+                Port = "22"
+                IdentityFile = ""
+            }
+        }
+        elseif ($currentHost) {
+            if ($line -match "^\s*HostName\s+(.+)$") {
+                $currentHost.HostName = $Matches[1]
+            }
+            elseif ($line -match "^\s*User\s+(.+)$") {
+                $currentHost.User = $Matches[1]
+            }
+            elseif ($line -match "^\s*Port\s+(.+)$") {
+                $currentHost.Port = $Matches[1]
+            }
+            elseif ($line -match "^\s*IdentityFile\s+(.+)$") {
+                $currentHost.IdentityFile = $Matches[1]
+            }
+        }
+    }
+    
+    if ($currentHost) {
+        $hosts += $currentHost
+    }
+    
+    return $hosts | Where-Object { $_.HostName -ne "" }
+}
+
+function Select-SSHHost {
+    Write-Step "Select Host from SSH Config"
+    
+    $hosts = Get-SSHConfigHosts
+    
+    if ($hosts.Count -eq 0) {
+        Write-Warning "No SSH hosts found in your config file"
+        return $null
+    }
+    
+    Write-Info "Available SSH Hosts:"
+    for ($i = 0; $i -lt $hosts.Count; $i++) {
+        Write-Host "[$($i+1)] $($hosts[$i].Name)"
+        Write-Host "     Hostname: $($hosts[$i].HostName)" -ForegroundColor Gray
+        if ($hosts[$i].User) {
+            Write-Host "     User: $($hosts[$i].User)" -ForegroundColor Gray
+        }
+    }
+    
+    do {
+        $selection = Read-Host "`nSelect host by number (0 to cancel)"
+        if ($selection -eq "0") {
+            return $null
+        }
+        
+        try {
+            $index = [int]$selection - 1
+            $valid = $index -ge 0 -and $index -lt $hosts.Count
+        } catch {
+            $valid = $false
+        }
+    } while (-not $valid)
+    
+    $selectedHost = $hosts[$index]
+    Write-Success "Selected host: $($selectedHost.Name) ($($selectedHost.HostName))"
+    
+    # Update connection info
+    $connectionInfo = @{
+        VMName = $selectedHost.Name
+        PublicIP = $selectedHost.HostName
+        AdminUsername = if ($selectedHost.User) { $selectedHost.User } else { $AdminUsername }
+        SSHKeyPath = if ($selectedHost.IdentityFile) { $selectedHost.IdentityFile } else { $null }
+        Port = $selectedHost.Port
+        FromSSHConfig = $true
+    }
+    
+    $connectionInfo | ConvertTo-Json | Out-File $script:ConnectionInfoFile
+    
+    return $connectionInfo
+}
+#endregion
 
 #region Network Testing Functions
 function Test-Port {
@@ -1676,31 +1372,19 @@ function Process-Command {
                 Write-Host "SSH: ssh -i $(Find-SSHPrivateKey) $($info.AdminUsername)@$($info.PublicIP)"
             }
         }
-        #
+        
         'Install' {
-            $info = Get-ConnectionInfo  # This now includes SSH config support
+            $info = Get-ConnectionInfo
             if (-not $info) {
-                Write-Error "No VM connection info available."
+                Write-Error "No VM connection info. Specify -VMIPAddress or deploy VM first."
                 return
             }
             
-            # Determine SSH key
-            $sshKey = $null
-            if ($info.SSHKeyPath) {
-                $sshKey = $info.SSHKeyPath
-                Write-Info "Using SSH key from config: $sshKey"
-            } else {
-                $sshKey = Find-SSHPrivateKey -ProvidedPath $SSHKeyPath
-            }
-            
-            if (-not $sshKey) { 
-                Write-Error "No SSH key found"
-                return 
-            }
+            $sshKey = Find-SSHPrivateKey -ProvidedPath $SSHKeyPath
+            if (-not $sshKey) { return }
             
             Write-Info "Preparing to install PHIS..."
-            Write-Info "VM: $($info.VMName)"
-            Write-Info "IP: $($info.PublicIP)"
+            Write-Info "VM IP: $($info.PublicIP)"
             Write-Info "Username: $($info.AdminUsername)"
             Write-Info "SSH Key: $sshKey"
             
@@ -2011,51 +1695,7 @@ function Process-Command {
                         }
                     }
                     "15" { & "$PSCommandPath" -Command ShowInfo }
-"16" { 
-Write-Host "`n1. List SSH config hosts"
-Write-Host "2. Select host for PHIS connection"
-Write-Host "3. Add current VM to SSH config"
-$sshChoice = Read-Host "`nSelect option"
-
-switch ($sshChoice) {
-    "1" {
-        $hosts = Get-SSHConfigHosts
-        if ($hosts.Count -gt 0) {
-            Write-Info "SSH Config Hosts:"
-            $hosts | Format-Table Name, HostName, User, Port -AutoSize
-        } else {
-            Write-Warning "No hosts found in SSH config"
-        }
-    }
-    "2" {
-        $info = Get-ConnectionInfoFromSSHConfig
-        if ($info) {
-            Write-Success "Connection configured. You can now use other commands."
-        }
-    }
-    "3" {
-        # Add current VM to SSH config
-        $currentInfo = Get-ConnectionInfo
-        if ($currentInfo -and $currentInfo.PublicIP) {
-            $hostName = Read-Host "Enter name for this host in SSH config"
-            if ($hostName) {
-                $sshConfigFile = "$env:USERPROFILE\.ssh\config"
-                
-                $configEntry = @"
-
-Host $hostName
-HostName $($currentInfo.PublicIP)
-User $($currentInfo.AdminUsername)
-Port 22
-IdentityFile ~/.ssh/id_ed25519
-"@
-                Add-Content -Path $sshConfigFile -Value $configEntry
-                Write-Success "Added $hostName to SSH config"
-            }
-        }
-    }
-}
-}
+                    "16" { & "$PSCommandPath" -Command SelectHost }
                     "0" { 
                         Write-Host "`nThank you for using PHIS Master Controller!" -ForegroundColor Green
                         return 

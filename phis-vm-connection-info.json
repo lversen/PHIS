@@ -1,9 +1,8 @@
 {
-  "ResourceGroup": "Unknown",
-  "Port": "22",
-  "SSHKeyPath": null,
   "AdminUsername": "azureuser",
-  "VMName": null,
-  "PublicIP": null,
-  "FromSSHConfig": true
+  "DeploymentTime": "2025-07-16 10:35:07",
+  "ResourceGroup": "RG-PHIS-TEST",
+  "VMName": "phis-test-2",
+  "PublicIP": "20.13.0.178",
+  "SSHKeyPath": "C:\\Users\\siv017\\.ssh\\id_ed25519"
 }
