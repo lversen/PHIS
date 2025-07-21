@@ -1039,18 +1039,23 @@ function New-PHISUser {
         return
     }
     
-    # Construct the Docker command to create user
+    # Build the command as a single line
     $adminFlag = if ($IsAdmin) { "--admin" } else { "" }
     
-    $createUserCmd = @"
-sudo docker exec opensilex-docker-opensilexapp bash -c '/home/opensilex/bin/opensilex.sh user add \
-  --email=$Email \
-  --firstName=$FirstName \
-  --lastName=$LastName \
-  --password=$Password \
-  --lang=$Language \
-  $adminFlag'
-"@
+    # Construct the command on a single line
+    $createUserCmd = "sudo docker exec opensilex-docker-opensilexapp /home/opensilex/bin/opensilex.sh user add"
+    
+    # Add the admin flag if needed (before other parameters)
+    if ($IsAdmin) {
+        $createUserCmd += " --admin"
+    }
+    
+    # Add the rest of the parameters
+    $createUserCmd += " --email='$Email'"
+    $createUserCmd += " --firstName='$FirstName'"
+    $createUserCmd += " --lastName='$LastName'"
+    $createUserCmd += " --password='$Password'"
+    $createUserCmd += " --lang='$Language'"
     
     Write-Info "Creating user: $Email"
     Write-Info "Name: $FirstName $LastName"
@@ -1098,7 +1103,7 @@ function Get-PHISUsers {
     }
     
     # List users
-    $listCmd = "sudo docker exec opensilex-docker-opensilexapp bash -c '/home/opensilex/bin/opensilex.sh user list'"
+    $listCmd = "docker exec opensilex-docker-opensilexapp ./bin/opensilex.sh -h"
     
     Write-Info "Fetching user list..."
     Invoke-SSHCommand -IPAddress $info.PublicIP -Username $info.AdminUsername `
