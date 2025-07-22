@@ -23,7 +23,7 @@ def main():
 
     auth_api = swagger_client.AuthenticationApi(api_client)
 
-    identifier = "admin@opensilex.org" # The user to send a password reset to
+    identifier = "seb@test.no" # The user to send a password reset to
 
     try:
         auth_api.forgot_password(identifier)
