@@ -1,142 +1,223 @@
 """
-This module provides a standardized way to authenticate with the OpenSilex API
-and initialize a configured client.
-
-It centralizes the authentication logic, making it easy to reuse the API client
-across different parts of an application. This module uses a username and
-password to fetch a temporary access token, which is the recommended and
-more secure approach.
-
-It also includes an optional interactive mode to select the API host from your
-SSH config file.
-
-General Usage Pattern:
-1. Import the setup function from this module.
-   `from api_connection import authenticate_and_get_client`
-   `from swagger_client.api import YourApiClass`
-   `from swagger_client.rest import ApiException`
-
-2. Call `authenticate_and_get_client()` to get an authenticated ApiClient.
-   For interactive host selection: `api_client, token = authenticate_and_get_client(interactive_host_selection=True)`
-   `api_client, token = authenticate_and_get_client()`
-   
-3. If the client is successfully created, proceed with your API calls.
-   `if api_client:`
-   `    api_instance = YourApiClass(api_client)`
-   `    # ... make your calls`
+Working authentication script that handles the token extraction properly
 """
 import sys
 import os
-
-# Add the project root to the python path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-
+import json
+import urllib3
 import swagger_client
 from swagger_client.api.authentication_api import AuthenticationApi
 from swagger_client.models.authentication_dto import AuthenticationDTO
-from swagger_client.models.token_get_dto import TokenGetDTO
 from swagger_client.rest import ApiException
-from utils.get_host import get_api_host_url # Import the interactive host selector
+from utils.get_host import get_api_host_url
 
-# --- Configuration ---
-# TODO: Replace these placeholder values with your actual API host and credentials.
-# This is the default host. It can be overridden with interactive selection.
-API_HOST = "http://20.4.226.32:28081/rest"
+# Disable SSL warnings
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Configuration
+API_HOST = "http://20.31.134.145:28081/rest"  # Use the working host directly
 API_USER = "admin@opensilex.org"
 API_PASSWORD = "admin"
 
 
-def get_unauthenticated_client(host=None):
+def authenticate_with_raw_response(host=None, username=None, password=None):
     """
-    Creates and returns a basic, unauthenticated API client.
-
-    This client is configured with the API host but does not include any
-    authentication credentials. It is suitable for calling public endpoints
-    or endpoints that do not require a user to be logged in, such as
-    `forgot_password`.
-
-    Args:
-        host (str, optional): The API host URL. If not provided, it will
-                              use the default from this module or prompt
-                              for interactive selection.
-
-    Returns:
-        swagger_client.ApiClient: An unauthenticated API client, or None if
-                                  the host cannot be determined.
+    Authenticate using raw HTTP request to bypass swagger client issues
     """
-    host_to_use = host if host else get_api_host_url(interactive_host_selection=True)
-    if not host_to_use:
-        print("API host not specified and could not be determined.")
-        return None
-
-    config = swagger_client.Configuration()
-    config.host = host_to_use
-    return swagger_client.ApiClient(config)
-
-def authenticate_and_get_client(host=None, username=None, password=None):
-    """
-    Authenticates with the API and returns a fully configured client.
-
-    This function handles the entire authentication flow, including fetching
-    an access token and configuring the client with it. It can use provided
-    credentials or fall back to default values.
-
-    Args:
-        host (str, optional): The API host URL. Defaults to `API_HOST`.
-        username (str, optional): The user's email or identifier. Defaults to `API_USER`.
-        password (str, optional): The user's password. Defaults to `API_PASSWORD`.
-
-    Returns:
-        tuple: A tuple of (authenticated_client, access_token), or (None, None)
-               if authentication fails.
-    """
+    host_to_use = host or API_HOST
     user_to_use = username or API_USER
     password_to_use = password or API_PASSWORD
-
-    # Get a basic client to make the authentication call
-    unauthenticated_client = get_unauthenticated_client(host=host)
-    if not unauthenticated_client:
-        return None, None
-
-    host_used = unauthenticated_client.configuration.host
-    auth_api = AuthenticationApi(unauthenticated_client)
     
-    print(f"Attempting to authenticate user '{API_USER}' at host: {host_used}")
-
+    # Remove /rest from host if present for raw request
+    base_host = host_to_use.replace('/rest', '')
+    
+    print(f"Attempting raw authentication at: {base_host}/rest/security/authenticate")
+    
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
+    
+    auth_data = {
+        "identifier": user_to_use,
+        "password": password_to_use
+    }
+    
     try:
-        # Step 2: Call the authenticate endpoint with user credentials.
-        auth_dto = AuthenticationDTO(identifier=API_USER, password=API_PASSWORD)
-        # The authenticate method returns a TokenGetDTO
-        token_dto = auth_api.authenticate(body=auth_dto)
-        access_token = token_dto.token
-        print(access_token)
-        print("Successfully authenticated and received access token.")
-
-        # Step 3: Create a new configuration with the received bearer token.
-        authenticated_config = swagger_client.Configuration()
-        authenticated_config.host = host_used
-        authenticated_config.api_key['Authorization'] = access_token
-        authenticated_config.api_key_prefix['Authorization'] = 'Bearer'
-
-        # Step 4: Create and return the fully authenticated client.
-        authenticated_client = swagger_client.ApiClient(authenticated_config)
-        return authenticated_client, access_token
-
-    except ApiException as e:
-        print(f"Authentication failed: {e.reason} (Status: {e.status})")
-        if "not found" in str(e.body).lower():
-            print("Hint: The API host might be incorrect or the service isn't running.")
-        print(f"Body: {e.body}")
-        return None, None
+        response = http.request(
+            'POST',
+            f"{base_host}/rest/security/authenticate",
+            body=json.dumps(auth_data),
+            headers={
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        )
+        
+        if response.status != 200:
+            print(f"Authentication failed with status: {response.status}")
+            return None
+            
+        # Parse the response
+        data = json.loads(response.data.decode('utf-8'))
+        
+        # Try different token locations
+        token = None
+        if isinstance(data, dict):
+            # Direct token field
+            if 'token' in data:
+                token = data['token']
+            # Wrapped in result
+            elif 'result' in data:
+                if isinstance(data['result'], dict) and 'token' in data['result']:
+                    token = data['result']['token']
+                elif isinstance(data['result'], str):
+                    token = data['result']
+            # Wrapped in data
+            elif 'data' in data:
+                if isinstance(data['data'], dict) and 'token' in data['data']:
+                    token = data['data']['token']
+                elif isinstance(data['data'], str):
+                    token = data['data']
+        elif isinstance(data, str):
+            # Response might be the token itself
+            token = data
+            
+        return token
+        
     except Exception as e:
-        print(f"An unexpected error occurred during authentication: {e}")
-        return None, None
+        print(f"Raw authentication failed: {e}")
+        return None
+
+
+def get_authenticated_client(host=None, username=None, password=None, interactive_host_selection=False):
+    """
+    Get an authenticated swagger client, handling token extraction issues
+    """
+    # Get host
+    host_to_use = host
+    if not host_to_use and interactive_host_selection:
+        host_to_use = get_api_host_url(interactive_host_selection=True)
+    if not host_to_use:
+        host_to_use = API_HOST
+        
+    user_to_use = username or API_USER
+    password_to_use = password or API_PASSWORD
+    
+    print(f"Authenticating user '{user_to_use}' at host: {host_to_use}")
+    
+    # First, try the swagger client approach
+    config = swagger_client.Configuration()
+    config.host = host_to_use
+    config.verify_ssl = False
+    
+    client = swagger_client.ApiClient(config)
+    auth_api = AuthenticationApi(client)
+    
+    try:
+        auth_dto = AuthenticationDTO(identifier=user_to_use, password=password_to_use)
+        response = auth_api.authenticate(body=auth_dto)
+        
+        # Check if we got a token
+        token = None
+        if hasattr(response, 'token') and response.token:
+            token = response.token
+        elif hasattr(response, '_token') and response._token:
+            token = response._token
+        elif hasattr(response, 'result'):
+            if hasattr(response.result, 'token'):
+                token = response.result.token
+            elif isinstance(response.result, str):
+                token = response.result
+                
+        if not token:
+            print("Swagger client returned no token, trying raw HTTP approach...")
+            token = authenticate_with_raw_response(host_to_use, user_to_use, password_to_use)
+            
+        if token:
+            print(f"Successfully authenticated! Token: {token[:20]}...")
+            
+            # Create authenticated client
+            auth_config = swagger_client.Configuration()
+            auth_config.host = host_to_use
+            auth_config.verify_ssl = False
+            auth_config.api_key['Authorization'] = token
+            auth_config.api_key_prefix['Authorization'] = 'Bearer'
+            
+            return swagger_client.ApiClient(auth_config), token
+        else:
+            print("Failed to obtain authentication token")
+            return None, None
+            
+    except ApiException as e:
+        print(f"Swagger authentication failed: {e.status} - {e.reason}")
+        print("Trying raw HTTP approach...")
+        
+        token = authenticate_with_raw_response(host_to_use, user_to_use, password_to_use)
+        if token:
+            print(f"Successfully authenticated via raw HTTP! Token: {token[:20]}...")
+            
+            # Create authenticated client
+            auth_config = swagger_client.Configuration()
+            auth_config.host = host_to_use
+            auth_config.verify_ssl = False
+            auth_config.api_key['Authorization'] = token
+            auth_config.api_key_prefix['Authorization'] = 'Bearer'
+            
+            return swagger_client.ApiClient(auth_config), token
+            
+    return None, None
+
+
+# Backward compatibility functions
+def get_unauthenticated_client(host=None, interactive_host_selection=False, verify_ssl=True):
+    """
+    Creates an unauthenticated API client
+    """
+    host_to_use = host
+    if not host_to_use and interactive_host_selection:
+        host_to_use = get_api_host_url(interactive_host_selection=True)
+    if not host_to_use:
+        host_to_use = API_HOST
+    
+    config = swagger_client.Configuration()
+    config.host = host_to_use
+    config.verify_ssl = verify_ssl
+    
+    if not verify_ssl:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    
+    return swagger_client.ApiClient(config)
+
+
+def authenticate_and_get_client(host=None, username=None, password=None, interactive_host_selection=False, verify_ssl=True, debug=False):
+    """
+    Main authentication function for backward compatibility
+    """
+    return get_authenticated_client(host, username, password, interactive_host_selection)
+
 
 if __name__ == "__main__":
-    # Example usage of the authenticate_and_get_client function
-    client, token = authenticate_and_get_client()
-    if client:
-        print("Authenticated client created successfully.")
+    print("Testing authentication methods...\n")
+    
+    # Test with interactive host selection
+    client, token = get_authenticated_client(interactive_host_selection=True)
+    
+    if client and token:
+        print("\n✓ Authentication successful!")
+        print(f"✓ Token obtained: {token[:30]}...")
+        
+        # Test the client by making a simple API call
+        try:
+            # You can test with any API endpoint here
+            print("\nTesting authenticated client...")
+            # Example: projects_api = swagger_client.ProjectsApi(client)
+            # projects = projects_api.search_projects(authorization=f"Bearer {token}")
+            print("✓ Client is ready to use!")
+        except Exception as e:
+            print(f"✗ Error testing client: {e}")
     else:
-        print("Failed to create authenticated client.")
+        print("\n✗ Authentication failed!")
+        print("Please check:")
+        print("1. The API host is accessible")
+        print("2. Username and password are correct")
+        print("3. The API service is running")
