@@ -110,6 +110,7 @@ def authenticate_and_get_client(host=None, username=None, password=None):
         # The authenticate method returns a TokenGetDTO
         token_dto = auth_api.authenticate(body=auth_dto)
         access_token = token_dto.token
+        print(access_token)
         print("Successfully authenticated and received access token.")
 
         # Step 3: Create a new configuration with the received bearer token.
@@ -132,3 +133,10 @@ def authenticate_and_get_client(host=None, username=None, password=None):
         print(f"An unexpected error occurred during authentication: {e}")
         return None, None
 
+if __name__ == "__main__":
+    # Example usage of the authenticate_and_get_client function
+    client, token = authenticate_and_get_client()
+    if client:
+        print("Authenticated client created successfully.")
+    else:
+        print("Failed to create authenticated client.")

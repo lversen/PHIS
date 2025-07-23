@@ -1,0 +1,5 @@
+# This is a template file for importing variables. Please fill in the data below the headers.
+# The first row contains the headers, and the following rows should contain the variable data.
+# The datatypes for each column are specified in the script that generated this file.
+variable_name,trait,method,unit,datatype,entity,characteristic
+test,test_trait,test_method,test_unit,test_datatype,test_entity,test_characteristic

@@ -9,10 +9,7 @@ This code can then be used to get an access token.
 
 import sys
 import os
-
-# Add the project root to the python path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 import swagger_client
 from authenticate import authenticate_and_get_client
 
