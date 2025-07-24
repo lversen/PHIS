@@ -3,8 +3,6 @@ Working authentication script that handles the token extraction properly
 """
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-
 import json
 import urllib3
 import swagger_client
