@@ -5,7 +5,7 @@ import sys
 import os
 import json
 import urllib3
-import swagger_client
+from generated_python_client import swagger_client
 from swagger_client.api.authentication_api import AuthenticationApi
 from swagger_client.models.authentication_dto import AuthenticationDTO
 from swagger_client.rest import ApiException
