@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "version": "1.4.8-rdg",
+    "version": "1.4.7",
     "title": "OpenSilex API"
   },
   "tags": [
@@ -67,9 +67,6 @@
     },
     {
       "name": "Variables"
-    },
-    {
-      "name": "Dataverse"
     },
     {
       "name": "Faidare"
@@ -241,6 +238,84 @@
             "description": "Internal Server Error",
             "schema": {
               "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/brapi/v1/studies/{studyDbId}/observations": {
+      "get": {
+        "tags": [
+          "BRAPI"
+        ],
+        "summary": "Get the observations associated to a specific study",
+        "description": "Get the observations associated to a specific study",
+        "operationId": "getObservations",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "studyDbId",
+            "in": "path",
+            "description": "studyDbId",
+            "required": true,
+            "type": "string",
+            "format": "uri"
+          },
+          {
+            "name": "observationVariableDbIds",
+            "in": "query",
+            "description": "observationVariableDbIds",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "pageSize",
+            "required": false,
+            "type": "integer",
+            "default": 20,
+            "minimum": 0,
+            "format": "int32"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "page",
+            "required": false,
+            "type": "integer",
+            "default": 0,
+            "minimum": 0,
+            "format": "int32"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Authentication token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "Request accepted language",
+            "required": false,
+            "type": "string",
+            "x-example": "en"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BrAPIv1ObservationListResponse"
             }
           }
         }
@@ -463,84 +538,6 @@
             "description": "Retrieve study details",
             "schema": {
               "$ref": "#/definitions/BrAPIv1SingleStudyResponse"
-            }
-          }
-        }
-      }
-    },
-    "/brapi/v1/studies/{studyDbId}/observations": {
-      "get": {
-        "tags": [
-          "BRAPI"
-        ],
-        "summary": "Get the observations associated to a specific study",
-        "description": "Get the observations associated to a specific study",
-        "operationId": "getObservations",
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "studyDbId",
-            "in": "path",
-            "description": "studyDbId",
-            "required": true,
-            "type": "string",
-            "format": "uri"
-          },
-          {
-            "name": "observationVariableDbIds",
-            "in": "query",
-            "description": "observationVariableDbIds",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uri"
-            },
-            "collectionFormat": "multi"
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "description": "pageSize",
-            "required": false,
-            "type": "integer",
-            "default": 20,
-            "minimum": 0,
-            "format": "int32"
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "description": "page",
-            "required": false,
-            "type": "integer",
-            "default": 0,
-            "minimum": 0,
-            "format": "int32"
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Authentication token",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
-            "required": false,
-            "type": "string",
-            "x-example": "en"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/BrAPIv1ObservationListResponse"
             }
           }
         }
@@ -2400,167 +2397,6 @@
         }
       }
     },
-    "/core/data/variables": {
-      "get": {
-        "tags": [
-          "Data"
-        ],
-        "summary": "Get variables linked to data",
-        "description": "",
-        "operationId": "getUsedVariables",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "experiments",
-            "in": "query",
-            "description": "Search by experiment uris",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uri"
-            },
-            "collectionFormat": "multi",
-            "x-example": "http://opensilex/experiment/id/ZA17"
-          },
-          {
-            "name": "targets",
-            "in": "query",
-            "description": "Search by targets uris",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uri"
-            },
-            "collectionFormat": "multi",
-            "x-example": "http://opensilex.dev/opensilex/2020/o20000345"
-          },
-          {
-            "name": "provenances",
-            "in": "query",
-            "description": "Search by provenance uris",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uri"
-            },
-            "collectionFormat": "multi",
-            "x-example": "http://opensilex.dev/variable#variable.2020-08-21_11-21-23entity6_method6_quality6_unit6"
-          },
-          {
-            "name": "devices",
-            "in": "query",
-            "description": "Search by device uris",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uri"
-            },
-            "collectionFormat": "multi"
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Authentication token",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
-            "required": false,
-            "type": "string",
-            "x-example": "en"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Return variables list",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/VariableGetDTO"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/core/data/import_validation": {
-      "post": {
-        "tags": [
-          "Data"
-        ],
-        "summary": "Import a CSV file for the given provenanceURI.",
-        "description": "",
-        "operationId": "validateCSV",
-        "consumes": [
-          "multipart/form-data"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "provenance",
-            "in": "query",
-            "description": "Provenance URI",
-            "required": true,
-            "type": "string",
-            "format": "uri",
-            "x-example": "http://opensilex.dev/id/provenance/provenancelabel"
-          },
-          {
-            "name": "experiment",
-            "in": "query",
-            "description": "Experiment URI",
-            "required": false,
-            "type": "string",
-            "format": "uri",
-            "x-example": "http://opensilex/experiment/id/ZA17"
-          },
-          {
-            "name": "file",
-            "in": "formData",
-            "description": "File",
-            "required": true,
-            "type": "file"
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Authentication token",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
-            "required": false,
-            "type": "string",
-            "x-example": "en"
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Data are validated",
-            "schema": {
-              "$ref": "#/definitions/DataCSVValidationDTO"
-            }
-          }
-        }
-      }
-    },
     "/core/data/count": {
       "post": {
         "tags": [
@@ -3427,6 +3263,72 @@
         }
       }
     },
+    "/core/data/import_validation": {
+      "post": {
+        "tags": [
+          "Data"
+        ],
+        "summary": "Import a CSV file for the given provenanceURI.",
+        "description": "",
+        "operationId": "validateCSV",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "provenance",
+            "in": "query",
+            "description": "Provenance URI",
+            "required": true,
+            "type": "string",
+            "format": "uri",
+            "x-example": "http://opensilex.dev/id/provenance/provenancelabel"
+          },
+          {
+            "name": "experiment",
+            "in": "query",
+            "description": "Experiment URI",
+            "required": false,
+            "type": "string",
+            "format": "uri",
+            "x-example": "http://opensilex/experiment/id/ZA17"
+          },
+          {
+            "name": "file",
+            "in": "formData",
+            "description": "File",
+            "required": true,
+            "type": "file"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Authentication token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "Request accepted language",
+            "required": false,
+            "type": "string",
+            "x-example": "en"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Data are validated",
+            "schema": {
+              "$ref": "#/definitions/DataCSVValidationDTO"
+            }
+          }
+        }
+      }
+    },
     "/core/data/export": {
       "get": {
         "tags": [
@@ -3898,6 +3800,101 @@
         }
       }
     },
+    "/core/data/variables": {
+      "get": {
+        "tags": [
+          "Data"
+        ],
+        "summary": "Get variables linked to data",
+        "description": "",
+        "operationId": "getUsedVariables",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "experiments",
+            "in": "query",
+            "description": "Search by experiment uris",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "collectionFormat": "multi",
+            "x-example": "http://opensilex/experiment/id/ZA17"
+          },
+          {
+            "name": "targets",
+            "in": "query",
+            "description": "Search by targets uris",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "collectionFormat": "multi",
+            "x-example": "http://opensilex.dev/opensilex/2020/o20000345"
+          },
+          {
+            "name": "provenances",
+            "in": "query",
+            "description": "Search by provenance uris",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "collectionFormat": "multi",
+            "x-example": "http://opensilex.dev/variable#variable.2020-08-21_11-21-23entity6_method6_quality6_unit6"
+          },
+          {
+            "name": "devices",
+            "in": "query",
+            "description": "Search by device uris",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Authentication token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "Request accepted language",
+            "required": false,
+            "type": "string",
+            "x-example": "en"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Return variables list",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/VariableGetDTO"
+              }
+            }
+          }
+        }
+      }
+    },
     "/core/data/import": {
       "post": {
         "tags": [
@@ -3960,52 +3957,6 @@
             "schema": {
               "$ref": "#/definitions/DataCSVValidationDTO"
             }
-          }
-        }
-      }
-    },
-    "/core/datafiles/{uri}": {
-      "get": {
-        "tags": [
-          "Data"
-        ],
-        "summary": "Get a data file",
-        "description": "",
-        "operationId": "getDataFile",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/octet-stream"
-        ],
-        "parameters": [
-          {
-            "name": "uri",
-            "in": "path",
-            "description": "Search by fileUri",
-            "required": true,
-            "type": "string",
-            "format": "uri"
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Authentication token",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
-            "required": false,
-            "type": "string",
-            "x-example": "en"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Retrieve file"
           }
         }
       }
@@ -4350,6 +4301,52 @@
               "type": "integer",
               "format": "int32"
             }
+          }
+        }
+      }
+    },
+    "/core/datafiles/{uri}": {
+      "get": {
+        "tags": [
+          "Data"
+        ],
+        "summary": "Get a data file",
+        "description": "",
+        "operationId": "getDataFile",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/octet-stream"
+        ],
+        "parameters": [
+          {
+            "name": "uri",
+            "in": "path",
+            "description": "Search by fileUri",
+            "required": true,
+            "type": "string",
+            "format": "uri"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Authentication token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "Request accepted language",
+            "required": false,
+            "type": "string",
+            "x-example": "en"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retrieve file"
           }
         }
       }
@@ -7922,6 +7919,73 @@
         }
       }
     },
+    "/core/experiments/{uri}/data/import_validation": {
+      "post": {
+        "tags": [
+          "Experiments"
+        ],
+        "summary": "Import a CSV file for the given experiment URI and scientific object type.",
+        "description": "",
+        "operationId": "validateCSV_2",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "uri",
+            "in": "path",
+            "description": "Experiment URI",
+            "required": true,
+            "type": "string",
+            "format": "uri",
+            "x-example": "http://opensilex/experiment/id/ZA17"
+          },
+          {
+            "name": "provenance",
+            "in": "query",
+            "description": "Provenance URI",
+            "required": true,
+            "type": "string",
+            "format": "uri",
+            "x-example": "http://opensilex.dev/id/provenance/provenancelabel"
+          },
+          {
+            "name": "file",
+            "in": "formData",
+            "description": "Data file",
+            "required": true,
+            "type": "file"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Authentication token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "Request accepted language",
+            "required": false,
+            "type": "string",
+            "x-example": "en"
+          }
+        ],
+        "deprecated": true,
+        "responses": {
+          "201": {
+            "description": "Data file and metadata saved",
+            "schema": {
+              "$ref": "#/definitions/DataCSVValidationDTO"
+            }
+          }
+        }
+      }
+    },
     "/core/experiments/{uri}/variables": {
       "get": {
         "tags": [
@@ -7989,14 +8053,14 @@
         }
       }
     },
-    "/core/experiments/{uri}/data/import_validation": {
+    "/core/experiments/{uri}/data/import": {
       "post": {
         "tags": [
           "Experiments"
         ],
         "summary": "Import a CSV file for the given experiment URI and scientific object type.",
         "description": "",
-        "operationId": "validateCSV_2",
+        "operationId": "importCSVData_1",
         "consumes": [
           "multipart/form-data"
         ],
@@ -9094,73 +9158,6 @@
             "description": "Experiment not found (if any provided URIs is not found",
             "schema": {
               "$ref": "#/definitions/ErrorDTO"
-            }
-          }
-        }
-      }
-    },
-    "/core/experiments/{uri}/data/import": {
-      "post": {
-        "tags": [
-          "Experiments"
-        ],
-        "summary": "Import a CSV file for the given experiment URI and scientific object type.",
-        "description": "",
-        "operationId": "importCSVData_1",
-        "consumes": [
-          "multipart/form-data"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "uri",
-            "in": "path",
-            "description": "Experiment URI",
-            "required": true,
-            "type": "string",
-            "format": "uri",
-            "x-example": "http://opensilex/experiment/id/ZA17"
-          },
-          {
-            "name": "provenance",
-            "in": "query",
-            "description": "Provenance URI",
-            "required": true,
-            "type": "string",
-            "format": "uri",
-            "x-example": "http://opensilex.dev/id/provenance/provenancelabel"
-          },
-          {
-            "name": "file",
-            "in": "formData",
-            "description": "Data file",
-            "required": true,
-            "type": "file"
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Authentication token",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
-            "required": false,
-            "type": "string",
-            "x-example": "en"
-          }
-        ],
-        "deprecated": true,
-        "responses": {
-          "201": {
-            "description": "Data file and metadata saved",
-            "schema": {
-              "$ref": "#/definitions/DataCSVValidationDTO"
             }
           }
         }
@@ -12149,6 +12146,31 @@
         }
       }
     },
+    "/ontology/name_space": {
+      "get": {
+        "tags": [
+          "Ontology"
+        ],
+        "summary": "Return namespaces",
+        "description": "",
+        "operationId": "getNameSpace",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Return namespaces",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
     "/ontology/base_uri": {
       "get": {
         "tags": [
@@ -12226,91 +12248,6 @@
             "description": "Return class model definition ",
             "schema": {
               "$ref": "#/definitions/RDFTypeDTO"
-            }
-          }
-        }
-      }
-    },
-    "/ontology/name_space": {
-      "get": {
-        "tags": [
-          "Ontology"
-        ],
-        "summary": "Return namespaces",
-        "description": "",
-        "operationId": "getNameSpace",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "Return namespaces",
-            "schema": {
-              "type": "string"
-            }
-          }
-        }
-      }
-    },
-    "/ontology/object_properties": {
-      "get": {
-        "tags": [
-          "Ontology"
-        ],
-        "summary": "Search object properties tree",
-        "description": "",
-        "operationId": "getObjectProperties",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "domain",
-            "in": "query",
-            "description": "Domain URI",
-            "required": false,
-            "type": "string",
-            "format": "uri"
-          },
-          {
-            "name": "name",
-            "in": "query",
-            "description": "Name regex pattern",
-            "required": false,
-            "type": "string",
-            "x-example": "plant_height"
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Authentication token",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
-            "required": false,
-            "type": "string",
-            "x-example": "en"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Return object property tree",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/ResourceTreeDTO"
-              }
             }
           }
         }
@@ -12532,6 +12469,66 @@
         }
       }
     },
+    "/ontology/object_properties": {
+      "get": {
+        "tags": [
+          "Ontology"
+        ],
+        "summary": "Search object properties tree",
+        "description": "",
+        "operationId": "getObjectProperties",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "query",
+            "description": "Domain URI",
+            "required": false,
+            "type": "string",
+            "format": "uri"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "description": "Name regex pattern",
+            "required": false,
+            "type": "string",
+            "x-example": "plant_height"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Authentication token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "Request accepted language",
+            "required": false,
+            "type": "string",
+            "x-example": "en"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Return object property tree",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ResourceTreeDTO"
+              }
+            }
+          }
+        }
+      }
+    },
     "/ontology/uri_label": {
       "get": {
         "tags": [
@@ -12708,6 +12705,66 @@
               "type": "array",
               "items": {
                 "$ref": "#/definitions/ObjectNamedResourceDTO"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ontology/data_properties": {
+      "get": {
+        "tags": [
+          "Ontology"
+        ],
+        "summary": "Search data properties tree",
+        "description": "",
+        "operationId": "getDataProperties",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "query",
+            "description": "Domain URI",
+            "required": false,
+            "type": "string",
+            "format": "uri"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "description": "Name regex pattern",
+            "required": false,
+            "type": "string",
+            "x-example": "plant_height"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Authentication token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "Request accepted language",
+            "required": false,
+            "type": "string",
+            "x-example": "en"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Return data property tree",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ResourceTreeDTO"
               }
             }
           }
@@ -12900,66 +12957,6 @@
               "type": "array",
               "items": {
                 "$ref": "#/definitions/PropertiesByDomainDTO"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/ontology/data_properties": {
-      "get": {
-        "tags": [
-          "Ontology"
-        ],
-        "summary": "Search data properties tree",
-        "description": "",
-        "operationId": "getDataProperties",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "domain",
-            "in": "query",
-            "description": "Domain URI",
-            "required": false,
-            "type": "string",
-            "format": "uri"
-          },
-          {
-            "name": "name",
-            "in": "query",
-            "description": "Name regex pattern",
-            "required": false,
-            "type": "string",
-            "x-example": "plant_height"
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Authentication token",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
-            "required": false,
-            "type": "string",
-            "x-example": "en"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Return data property tree",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/ResourceTreeDTO"
               }
             }
           }
@@ -15600,6 +15597,151 @@
         }
       }
     },
+    "/core/scientific_objects/import_validation": {
+      "post": {
+        "tags": [
+          "Scientific Objects"
+        ],
+        "summary": "Validate a CSV file for the given experiment URI and scientific object type.",
+        "description": "",
+        "operationId": "validateCSV_3",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "description",
+            "in": "formData",
+            "description": "File description with metadata",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "file",
+            "in": "formData",
+            "description": "Data file",
+            "required": true,
+            "type": "file"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Authentication token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "Request accepted language",
+            "required": false,
+            "type": "string",
+            "x-example": "en"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "CSV validation errors or a validation token used for CSV import",
+            "schema": {
+              "$ref": "#/definitions/CSVValidationDTO"
+            }
+          }
+        }
+      }
+    },
+    "/core/scientific_objects/export_geospatial": {
+      "post": {
+        "tags": [
+          "Scientific Objects"
+        ],
+        "summary": "Export a given list of scientific object URIs to shapefile or geojson",
+        "description": "",
+        "operationId": "exportGeospatial_2",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/octet-stream"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Scientific objects",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/GeometryDTO"
+              }
+            }
+          },
+          {
+            "name": "experiment",
+            "in": "query",
+            "description": "Experiment URI",
+            "required": false,
+            "type": "string",
+            "format": "uri",
+            "x-example": "http://opensilex/experiment/id/ZA17"
+          },
+          {
+            "name": "selected_props",
+            "in": "query",
+            "description": "properties selected",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "collectionFormat": "multi",
+            "x-example": "test"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "export format (shp/geojson)",
+            "required": false,
+            "type": "string",
+            "x-example": "shp"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Page size limited to 10,000 objects",
+            "required": false,
+            "type": "integer",
+            "maximum": 10000,
+            "format": "int32",
+            "x-example": 10000
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Authentication token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "Request accepted language",
+            "required": false,
+            "type": "string",
+            "x-example": "en"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data exported"
+          }
+        }
+      }
+    },
     "/core/scientific_objects/export": {
       "post": {
         "tags": [
@@ -16671,151 +16813,6 @@
               "type": "integer",
               "format": "int32"
             }
-          }
-        }
-      }
-    },
-    "/core/scientific_objects/import_validation": {
-      "post": {
-        "tags": [
-          "Scientific Objects"
-        ],
-        "summary": "Validate a CSV file for the given experiment URI and scientific object type.",
-        "description": "",
-        "operationId": "validateCSV_3",
-        "consumes": [
-          "multipart/form-data"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "description",
-            "in": "formData",
-            "description": "File description with metadata",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "file",
-            "in": "formData",
-            "description": "Data file",
-            "required": true,
-            "type": "file"
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Authentication token",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
-            "required": false,
-            "type": "string",
-            "x-example": "en"
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "CSV validation errors or a validation token used for CSV import",
-            "schema": {
-              "$ref": "#/definitions/CSVValidationDTO"
-            }
-          }
-        }
-      }
-    },
-    "/core/scientific_objects/export_geospatial": {
-      "post": {
-        "tags": [
-          "Scientific Objects"
-        ],
-        "summary": "Export a given list of scientific object URIs to shapefile or geojson",
-        "description": "",
-        "operationId": "exportGeospatial_2",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/octet-stream"
-        ],
-        "parameters": [
-          {
-            "in": "body",
-            "name": "body",
-            "description": "Scientific objects",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/GeometryDTO"
-              }
-            }
-          },
-          {
-            "name": "experiment",
-            "in": "query",
-            "description": "Experiment URI",
-            "required": false,
-            "type": "string",
-            "format": "uri",
-            "x-example": "http://opensilex/experiment/id/ZA17"
-          },
-          {
-            "name": "selected_props",
-            "in": "query",
-            "description": "properties selected",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uri"
-            },
-            "collectionFormat": "multi",
-            "x-example": "test"
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "description": "export format (shp/geojson)",
-            "required": false,
-            "type": "string",
-            "x-example": "shp"
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "description": "Page size limited to 10,000 objects",
-            "required": false,
-            "type": "integer",
-            "maximum": 10000,
-            "format": "int32",
-            "x-example": 10000
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Authentication token",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
-            "required": false,
-            "type": "string",
-            "x-example": "en"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Data exported"
           }
         }
       }
@@ -19730,6 +19727,82 @@
         }
       }
     },
+    "/core/variables_group/by_uris": {
+      "get": {
+        "tags": [
+          "Variables"
+        ],
+        "summary": "Get variables groups by their URIs",
+        "description": "",
+        "operationId": "getVariablesGroupByURIs",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "uris",
+            "in": "query",
+            "description": "Variables group URIs",
+            "required": true,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "sharedResourceInstance",
+            "in": "query",
+            "description": "Shared resource instance",
+            "required": false,
+            "type": "string",
+            "format": "uri"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Authentication token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "Request accepted language",
+            "required": false,
+            "type": "string",
+            "x-example": "en"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Return variables groups",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/VariablesGroupGetDTO"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "schema": {
+              "$ref": "#/definitions/ErrorDTO"
+            }
+          },
+          "404": {
+            "description": "Variables group not found (if any provided URIs is not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorDTO"
+            }
+          }
+        }
+      }
+    },
     "/core/variables_group": {
       "get": {
         "tags": [
@@ -20046,368 +20119,6 @@
             "description": "Unknown variables group URI",
             "schema": {
               "$ref": "#/definitions/ErrorResponse"
-            }
-          }
-        }
-      }
-    },
-    "/core/variables_group/by_uris": {
-      "get": {
-        "tags": [
-          "Variables"
-        ],
-        "summary": "Get variables groups by their URIs",
-        "description": "",
-        "operationId": "getVariablesGroupByURIs",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "uris",
-            "in": "query",
-            "description": "Variables group URIs",
-            "required": true,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uri"
-            },
-            "collectionFormat": "multi"
-          },
-          {
-            "name": "sharedResourceInstance",
-            "in": "query",
-            "description": "Shared resource instance",
-            "required": false,
-            "type": "string",
-            "format": "uri"
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Authentication token",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
-            "required": false,
-            "type": "string",
-            "x-example": "en"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Return variables groups",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/VariablesGroupGetDTO"
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid parameters",
-            "schema": {
-              "$ref": "#/definitions/ErrorDTO"
-            }
-          },
-          "404": {
-            "description": "Variables group not found (if any provided URIs is not found",
-            "schema": {
-              "$ref": "#/definitions/ErrorDTO"
-            }
-          }
-        }
-      }
-    },
-    "/dataverse/RechercheDataGouvBasePath": {
-      "get": {
-        "tags": [
-          "Dataverse"
-        ],
-        "summary": "Get the Recherche Data Gouv url from the instance configuration",
-        "description": "",
-        "operationId": "rechercheDataGouvBasePath",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Authentication token",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
-            "required": false,
-            "type": "string",
-            "x-example": "en"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Recherche Data Gouv Base Path retrieved successfully",
-            "schema": {
-              "type": "string",
-              "format": "uri"
-            }
-          }
-        }
-      }
-    },
-    "/dataverse": {
-      "post": {
-        "tags": [
-          "Dataverse"
-        ],
-        "summary": "Create experiment as a Dataset",
-        "description": "To consult the document created use the Document API",
-        "operationId": "createDataset",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "experimentUri",
-            "in": "query",
-            "description": "Experiment URI",
-            "required": true,
-            "type": "string",
-            "format": "uri",
-            "x-example": "dev:id/experiment/bc-test-release"
-          },
-          {
-            "name": "datasetTitle",
-            "in": "query",
-            "description": "Dataset Title",
-            "required": true,
-            "type": "string",
-            "x-example": "Test_dataset"
-          },
-          {
-            "name": "datasetAuthors",
-            "in": "query",
-            "description": "Dataset Authors",
-            "required": true,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uri"
-            },
-            "collectionFormat": "multi",
-            "x-example": "dev:id/user/person.test.dataverse"
-          },
-          {
-            "name": "datasetContacts",
-            "in": "query",
-            "description": "Dataset Contacts",
-            "required": true,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uri"
-            },
-            "collectionFormat": "multi",
-            "x-example": "dev:id/user/person.test.dataverse"
-          },
-          {
-            "name": "datasetLanguage",
-            "in": "query",
-            "description": "Dataset Language from list of values : [en, fr]",
-            "required": true,
-            "type": "string",
-            "x-example": "en"
-          },
-          {
-            "name": "datasetMetadataLanguage",
-            "in": "query",
-            "description": "Dataset Metadata Language from list of values : [en, fr]",
-            "required": true,
-            "type": "string",
-            "x-example": "en"
-          },
-          {
-            "name": "datasetRDFType",
-            "in": "query",
-            "description": "URI of the rdf_type of the dataset",
-            "required": true,
-            "type": "string",
-            "format": "uri",
-            "x-example": "http://www.opensilex.org/vocabulary/oeso-dataverse#RechercheDataGouvDataset"
-          },
-          {
-            "name": "productionDate",
-            "in": "query",
-            "description": "Dataset Production Date",
-            "required": false,
-            "type": "string",
-            "x-example": "2020-02-20"
-          },
-          {
-            "name": "datasetUri",
-            "in": "query",
-            "description": "Dataset URI",
-            "required": false,
-            "type": "string",
-            "format": "uri"
-          },
-          {
-            "name": "datasetDeprecated",
-            "in": "query",
-            "description": "Dataset deprecated",
-            "required": false,
-            "type": "boolean",
-            "x-example": false
-          },
-          {
-            "name": "dataverseBasePath",
-            "in": "query",
-            "description": "Dataverse API base path",
-            "required": false,
-            "type": "string",
-            "format": "url"
-          },
-          {
-            "name": "dataverseAlias",
-            "in": "query",
-            "description": "Parent dataverse alias",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "externalAPIKey",
-            "in": "query",
-            "description": "Dataverse API key",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Authentication token",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
-            "required": false,
-            "type": "string",
-            "x-example": "en"
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "A dataset was created",
-            "schema": {
-              "type": "string",
-              "format": "uri"
-            }
-          }
-        }
-      }
-    },
-    "/dataverse/datasetLanguages": {
-      "get": {
-        "tags": [
-          "Dataverse"
-        ],
-        "summary": "Get the available dataset languages",
-        "description": "",
-        "operationId": "availableDatasetLanguages",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Authentication token",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
-            "required": false,
-            "type": "string",
-            "x-example": "en"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Available dataset languages retrieved successfully",
-            "schema": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "object"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/dataverse/datasetMetadataLanguages": {
-      "get": {
-        "tags": [
-          "Dataverse"
-        ],
-        "summary": "Get the available dataset metadata languages",
-        "description": "",
-        "operationId": "availableDatasetMetadataLanguages",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Authentication token",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
-            "required": false,
-            "type": "string",
-            "x-example": "en"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Available dataverse languages retrieved successfully",
-            "schema": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "object"
-              }
             }
           }
         }
@@ -20894,62 +20605,32 @@
         }
       }
     },
-    "/vuejs/theme/{moduleId}/{themeId}/resource": {
+    "/vuejs/user_config": {
       "get": {
         "tags": [
           "Vue.js"
         ],
-        "summary": "Return the theme requested resource",
+        "summary": "Return the user-specific configuration",
         "description": "",
-        "operationId": "getThemeResource",
+        "operationId": "getUserConfig",
         "produces": [
-          "application/octet-stream"
+          "application/json"
         ],
         "parameters": [
           {
-            "name": "moduleId",
-            "in": "path",
-            "description": "Module identifier",
-            "required": true,
-            "type": "string",
-            "pattern": "([a-zA-Z0-9-]+$)",
-            "x-example": "opensilex-front"
-          },
-          {
-            "name": "themeId",
-            "in": "path",
-            "description": "Theme identifier",
-            "required": true,
-            "type": "string",
-            "pattern": "([a-zA-Z0-9-]+$)",
-            "x-example": "phis"
-          },
-          {
-            "name": "filePath",
-            "in": "query",
-            "description": "Resource path",
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "Request accepted language",
             "required": false,
             "type": "string",
-            "x-example": "images/opensilex.png"
-          },
-          {
-            "name": "acceptedExtensions",
-            "in": "query",
-            "description": "List of supported file extensions",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi",
-            "x-example": "png"
+            "x-example": "en"
           }
         ],
         "responses": {
           "200": {
-            "description": "Return the resource",
+            "description": "Front application configuration",
             "schema": {
-              "type": "file"
+              "$ref": "#/definitions/UserFrontConfigDTO"
             }
           }
         }
@@ -21069,32 +20750,62 @@
         }
       }
     },
-    "/vuejs/user_config": {
+    "/vuejs/theme/{moduleId}/{themeId}/resource": {
       "get": {
         "tags": [
           "Vue.js"
         ],
-        "summary": "Return the user-specific configuration",
+        "summary": "Return the theme requested resource",
         "description": "",
-        "operationId": "getUserConfig",
+        "operationId": "getThemeResource",
         "produces": [
-          "application/json"
+          "application/octet-stream"
         ],
         "parameters": [
           {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
+            "name": "moduleId",
+            "in": "path",
+            "description": "Module identifier",
+            "required": true,
+            "type": "string",
+            "pattern": "([a-zA-Z0-9-]+$)",
+            "x-example": "opensilex-front"
+          },
+          {
+            "name": "themeId",
+            "in": "path",
+            "description": "Theme identifier",
+            "required": true,
+            "type": "string",
+            "pattern": "([a-zA-Z0-9-]+$)",
+            "x-example": "phis"
+          },
+          {
+            "name": "filePath",
+            "in": "query",
+            "description": "Resource path",
             "required": false,
             "type": "string",
-            "x-example": "en"
+            "x-example": "images/opensilex.png"
+          },
+          {
+            "name": "acceptedExtensions",
+            "in": "query",
+            "description": "List of supported file extensions",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi",
+            "x-example": "png"
           }
         ],
         "responses": {
           "200": {
-            "description": "Front application configuration",
+            "description": "Return the resource",
             "schema": {
-              "$ref": "#/definitions/UserFrontConfigDTO"
+              "type": "file"
             }
           }
         }
@@ -22150,47 +21861,6 @@
         }
       }
     },
-    "/security/authenticate": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Authenticate a user and return an access token",
-        "description": "",
-        "operationId": "authenticate",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "in": "body",
-            "name": "body",
-            "description": "User authentication informations",
-            "required": false,
-            "schema": {
-              "$ref": "#/definitions/AuthenticationDTO"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "User sucessfully authenticated",
-            "schema": {
-              "$ref": "#/definitions/TokenGetDTO"
-            }
-          },
-          "403": {
-            "description": "Invalid credentials (user does not exists or invalid password)",
-            "schema": {
-              "$ref": "#/definitions/ErrorDTO"
-            }
-          }
-        }
-      }
-    },
     "/security/logout": {
       "delete": {
         "tags": [
@@ -22259,6 +21929,47 @@
             "description": "Token sucessfully renewed",
             "schema": {
               "$ref": "#/definitions/TokenGetDTO"
+            }
+          }
+        }
+      }
+    },
+    "/security/authenticate": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Authenticate a user and return an access token",
+        "description": "",
+        "operationId": "authenticate",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "User authentication informations",
+            "required": false,
+            "schema": {
+              "$ref": "#/definitions/AuthenticationDTO"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User sucessfully authenticated",
+            "schema": {
+              "$ref": "#/definitions/TokenGetDTO"
+            }
+          },
+          "403": {
+            "description": "Invalid credentials (user does not exists or invalid password)",
+            "schema": {
+              "$ref": "#/definitions/ErrorDTO"
             }
           }
         }
@@ -23999,53 +23710,6 @@
         }
       }
     },
-    "/security/users/favorites/{uriFavorite}": {
-      "delete": {
-        "tags": [
-          "Security"
-        ],
-        "summary": "Delete a favorite",
-        "description": "",
-        "operationId": "deleteFavorite_1",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "uriFavorite",
-            "in": "path",
-            "description": "Favorite URI",
-            "required": true,
-            "type": "string",
-            "format": "uri",
-            "x-example": "http://example.com/"
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "Authentication token",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "Accept-Language",
-            "in": "header",
-            "description": "Request accepted language",
-            "required": false,
-            "type": "string",
-            "x-example": "en"
-          }
-        ],
-        "responses": {
-          "default": {
-            "description": "successful operation"
-          }
-        }
-      }
-    },
     "/security/users/by_uris": {
       "get": {
         "tags": [
@@ -24111,6 +23775,53 @@
             "schema": {
               "$ref": "#/definitions/ErrorDTO"
             }
+          }
+        }
+      }
+    },
+    "/security/users/favorites/{uriFavorite}": {
+      "delete": {
+        "tags": [
+          "Security"
+        ],
+        "summary": "Delete a favorite",
+        "description": "",
+        "operationId": "deleteFavorite_1",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "uriFavorite",
+            "in": "path",
+            "description": "Favorite URI",
+            "required": true,
+            "type": "string",
+            "format": "uri",
+            "x-example": "http://example.com/"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Authentication token",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "Request accepted language",
+            "required": false,
+            "type": "string",
+            "x-example": "en"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "successful operation"
           }
         }
       }
@@ -24395,6 +24106,64 @@
         }
       }
     },
+    "BrAPIv1ObservationDTO": {
+      "type": "object",
+      "properties": {
+        "germplasmDbId": {
+          "type": "string"
+        },
+        "germplasmName": {
+          "type": "string"
+        },
+        "observationDbId": {
+          "type": "string"
+        },
+        "observationLevel": {
+          "type": "string"
+        },
+        "observationTimeStamp": {
+          "type": "string"
+        },
+        "observationUnitDbId": {
+          "type": "string"
+        },
+        "observationUnitName": {
+          "type": "string"
+        },
+        "observationVariableDbId": {
+          "type": "string"
+        },
+        "observationVariableName": {
+          "type": "string"
+        },
+        "operator": {
+          "type": "string"
+        },
+        "season": {
+          "$ref": "#/definitions/BrAPIv1SeasonDTO"
+        },
+        "studyDbId": {
+          "type": "string"
+        },
+        "uploadedBy": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "BrAPIv1ObservationListResponse": {
+      "type": "object",
+      "properties": {
+        "metadata": {
+          "$ref": "#/definitions/MetadataDTO"
+        },
+        "result": {
+          "$ref": "#/definitions/BrapiDataResponsePartListBrAPIv1ObservationDTO"
+        }
+      }
+    },
     "BrAPIv1SeasonDTO": {
       "type": "object",
       "properties": {
@@ -24406,6 +24175,17 @@
         },
         "year": {
           "type": "string"
+        }
+      }
+    },
+    "BrapiDataResponsePartListBrAPIv1ObservationDTO": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BrAPIv1ObservationDTO"
+          }
         }
       }
     },
@@ -24557,75 +24337,6 @@
         },
         "trialName": {
           "type": "string"
-        }
-      }
-    },
-    "BrAPIv1ObservationDTO": {
-      "type": "object",
-      "properties": {
-        "germplasmDbId": {
-          "type": "string"
-        },
-        "germplasmName": {
-          "type": "string"
-        },
-        "observationDbId": {
-          "type": "string"
-        },
-        "observationLevel": {
-          "type": "string"
-        },
-        "observationTimeStamp": {
-          "type": "string"
-        },
-        "observationUnitDbId": {
-          "type": "string"
-        },
-        "observationUnitName": {
-          "type": "string"
-        },
-        "observationVariableDbId": {
-          "type": "string"
-        },
-        "observationVariableName": {
-          "type": "string"
-        },
-        "operator": {
-          "type": "string"
-        },
-        "season": {
-          "$ref": "#/definitions/BrAPIv1SeasonDTO"
-        },
-        "studyDbId": {
-          "type": "string"
-        },
-        "uploadedBy": {
-          "type": "string"
-        },
-        "value": {
-          "type": "string"
-        }
-      }
-    },
-    "BrAPIv1ObservationListResponse": {
-      "type": "object",
-      "properties": {
-        "metadata": {
-          "$ref": "#/definitions/MetadataDTO"
-        },
-        "result": {
-          "$ref": "#/definitions/BrapiDataResponsePartListBrAPIv1ObservationDTO"
-        }
-      }
-    },
-    "BrapiDataResponsePartListBrAPIv1ObservationDTO": {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/BrAPIv1ObservationDTO"
-          }
         }
       }
     },
@@ -26039,6 +25750,15 @@
         }
       }
     },
+    "DataConfidenceDTO": {
+      "type": "object",
+      "properties": {
+        "confidence": {
+          "type": "number",
+          "format": "float"
+        }
+      }
+    },
     "CharacteristicGetDTO": {
       "type": "object",
       "properties": {
@@ -26050,6 +25770,172 @@
         "name": {
           "type": "string",
           "example": "Height"
+        }
+      }
+    },
+    "DataComputedGetDTO": {
+      "type": "object",
+      "required": [
+        "date",
+        "value"
+      ],
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "example": "2020-08-21T00:00:00+01:00",
+          "description": "date or datetime"
+        },
+        "value": {
+          "type": "object",
+          "example": "8.6",
+          "description": "can be decimal, integer, boolean, string or date"
+        }
+      }
+    },
+    "DataSerieGetDTO": {
+      "type": "object",
+      "properties": {
+        "provenance": {
+          "$ref": "#/definitions/DataSimpleProvenanceGetDTO"
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DataComputedGetDTO"
+          }
+        }
+      }
+    },
+    "DataSimpleProvenanceGetDTO": {
+      "type": "object",
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "rdf_type": {
+          "type": "string",
+          "format": "uri"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "DataVariableSeriesGetDTO": {
+      "type": "object",
+      "properties": {
+        "variable": {
+          "$ref": "#/definitions/VariableDetailsDTO"
+        },
+        "provenances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DataSimpleProvenanceGetDTO"
+          }
+        },
+        "devices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DeviceGetDTO"
+          }
+        },
+        "data_series": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DataSerieGetDTO"
+          }
+        },
+        "calculated_series": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DataSerieGetDTO"
+          }
+        },
+        "last_data_stored": {
+          "$ref": "#/definitions/DataComputedGetDTO"
+        }
+      }
+    },
+    "DeviceGetDTO": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "rdf_type": {
+          "type": "string",
+          "format": "uri",
+          "example": "http://www.opensilex.org/vocabulary/oeso#SensingDevice",
+          "description": "rdfType URI"
+        },
+        "rdf_type_name": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "example": "Sensor_01",
+          "description": "Device name"
+        },
+        "brand": {
+          "type": "string",
+          "example": "Campbell",
+          "description": "Device brand"
+        },
+        "constructor_model": {
+          "type": "string",
+          "example": "CS655",
+          "description": "Device model"
+        },
+        "serial_number": {
+          "type": "string",
+          "example": "123456",
+          "description": "Device serial number"
+        },
+        "person_in_charge": {
+          "type": "string",
+          "format": "uri",
+          "example": "http://opensilex.dev/person#Firstname.Lastname",
+          "description": "Person in charge"
+        },
+        "start_up": {
+          "type": "string",
+          "format": "date",
+          "example": "2018-12-12",
+          "description": "Device date of start-up"
+        },
+        "removal": {
+          "type": "string",
+          "format": "date",
+          "example": "2020-12-12",
+          "description": "Device date of removal"
+        },
+        "relations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RDFObjectRelationDTO"
+          }
+        },
+        "description": {
+          "type": "string",
+          "example": "description",
+          "description": "comment"
+        },
+        "publisher": {
+          "$ref": "#/definitions/UserGetDTO"
+        },
+        "publication_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_updated_date": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
@@ -26067,6 +25953,20 @@
         }
       }
     },
+    "InterestEntityGetDTO": {
+      "type": "object",
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "uri",
+          "example": "http://opensilex.dev/set/variables/entity_of_interest/Plot"
+        },
+        "name": {
+          "type": "string",
+          "example": "Plot"
+        }
+      }
+    },
     "MethodGetDTO": {
       "type": "object",
       "properties": {
@@ -26078,33 +25978,6 @@
         "name": {
           "type": "string",
           "example": "ImageAnalysis"
-        }
-      }
-    },
-    "NamedResourceDTO": {
-      "type": "object",
-      "properties": {
-        "uri": {
-          "type": "string",
-          "format": "uri"
-        },
-        "name": {
-          "type": "string"
-        },
-        "rdf_type": {
-          "type": "string",
-          "format": "uri"
-        },
-        "rdf_type_name": {
-          "type": "string"
-        },
-        "publication_date": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "last_updated_date": {
-          "type": "string",
-          "format": "date-time"
         }
       }
     },
@@ -26124,7 +25997,19 @@
         }
       }
     },
-    "UnitGetDTO": {
+    "SpeciesDTO": {
+      "type": "object",
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "UnitDetailsDTO": {
       "type": "object",
       "properties": {
         "uri": {
@@ -26135,10 +26020,64 @@
         "name": {
           "type": "string",
           "example": "Centimeter"
+        },
+        "description": {
+          "type": "string",
+          "example": "A common unit for describing a length"
+        },
+        "symbol": {
+          "type": "string",
+          "example": "cm"
+        },
+        "alternative_symbol": {
+          "type": "string",
+          "example": "cm"
+        },
+        "exact_match": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "close_match": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "broad_match": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "narrow_match": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "publisher": {
+          "$ref": "#/definitions/UserGetDTO"
+        },
+        "publication_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_updated_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "from_shared_resource_instance": {
+          "$ref": "#/definitions/SharedResourceInstanceDTO"
         }
       }
     },
-    "VariableGetDTO": {
+    "VariableDetailsDTO": {
       "type": "object",
       "properties": {
         "uri": {
@@ -26150,29 +26089,245 @@
           "type": "string",
           "example": "Plant_Height"
         },
+        "alternative_name": {
+          "type": "string",
+          "example": "Plant_Height_Estimation_Cm"
+        },
+        "description": {
+          "type": "string",
+          "example": "Describe the height of a plant."
+        },
         "entity": {
           "$ref": "#/definitions/EntityGetDTO"
         },
         "entity_of_interest": {
-          "$ref": "#/definitions/NamedResourceDTO"
+          "$ref": "#/definitions/InterestEntityGetDTO"
         },
         "characteristic": {
           "$ref": "#/definitions/CharacteristicGetDTO"
+        },
+        "trait": {
+          "type": "string",
+          "format": "uri",
+          "example": "http://purl.obolibrary.org/obo/TO_0002644"
+        },
+        "trait_name": {
+          "type": "string",
+          "example": "dry matter digestibility"
         },
         "method": {
           "$ref": "#/definitions/MethodGetDTO"
         },
         "unit": {
-          "$ref": "#/definitions/UnitGetDTO"
+          "$ref": "#/definitions/UnitDetailsDTO"
         },
-        "onLocal": {
-          "type": "boolean"
+        "species": {
+          "type": "array",
+          "example": "http://www.phenome-fppn.fr/id/species/zeamays",
+          "items": {
+            "$ref": "#/definitions/SpeciesDTO"
+          }
         },
-        "sharedResourceInstance": {
+        "time_interval": {
+          "type": "string",
+          "example": "minutes"
+        },
+        "sampling_interval": {
+          "type": "string",
+          "example": "minutes"
+        },
+        "datatype": {
+          "type": "string",
+          "format": "uri",
+          "example": "http://www.w3.org/2001/XMLSchema#integer"
+        },
+        "exact_match": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "close_match": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "broad_match": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "narrow_match": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "publisher": {
+          "$ref": "#/definitions/UserGetDTO"
+        },
+        "publication_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_updated_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "from_shared_resource_instance": {
           "$ref": "#/definitions/SharedResourceInstanceDTO"
+        }
+      }
+    },
+    "DataCreationDTO": {
+      "type": "object",
+      "required": [
+        "date",
+        "provenance",
+        "value",
+        "variable"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "uri",
+          "example": "http://opensilex.dev/id/data/1598857852858"
         },
-        "alternative_name": {
-          "type": "string"
+        "date": {
+          "type": "string",
+          "example": "2020-08-21T00:00:00+01:00",
+          "description": "date or datetime"
+        },
+        "timezone": {
+          "type": "string",
+          "description": "to specify if the offset is not in the date and if the timezone is different from the default one"
+        },
+        "target": {
+          "type": "string",
+          "format": "uri",
+          "example": "http://plot01",
+          "description": "target URI on which the data have been collected (e.g. a scientific object)"
+        },
+        "variable": {
+          "type": "string",
+          "format": "uri",
+          "example": "http://opensilex.dev/variable#variable.2020-08-21_11-21-23entity6_method6_quality6_unit6",
+          "description": "variable URI"
+        },
+        "value": {
+          "type": "object",
+          "example": "8.6",
+          "description": "can be decimal, integer, boolean, string or date"
+        },
+        "confidence": {
+          "type": "number",
+          "format": "float",
+          "example": 0.5,
+          "description": "confidence index",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "provenance": {
+          "$ref": "#/definitions/DataProvenanceModel"
+        },
+        "metadata": {
+          "type": "object",
+          "example": "{ \"LabelView\" : \"side90\",\n\"paramA\" : \"90\"}",
+          "description": "key-value system to store additional information that can be used to query data",
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
+        "raw_data": {
+          "type": "array",
+          "description": "list of repetition values",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "DataGetSearchDTO": {
+      "type": "object",
+      "required": [
+        "date",
+        "provenance",
+        "uri",
+        "value",
+        "variable"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "uri",
+          "example": "http://opensilex.dev/id/data/1598857852858",
+          "description": "data URI"
+        },
+        "date": {
+          "type": "string",
+          "example": "2020-08-21T00:00:00+01:00",
+          "description": "date or datetime"
+        },
+        "target": {
+          "type": "string",
+          "format": "uri",
+          "example": "http://plot01",
+          "description": "target URI on which the data have been collected (e.g. a scientific object)"
+        },
+        "variable": {
+          "type": "string",
+          "format": "uri",
+          "example": "http://opensilex.dev/variable#variable.2020-08-21_11-21-23entity6_method6_quality6_unit6",
+          "description": "variable URI"
+        },
+        "value": {
+          "type": "object",
+          "example": "8.6",
+          "description": "can be decimal, integer, boolean, string or date"
+        },
+        "confidence": {
+          "type": "number",
+          "format": "float",
+          "example": 0.5,
+          "description": "confidence index",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "provenance": {
+          "$ref": "#/definitions/DataProvenanceModel"
+        },
+        "metadata": {
+          "type": "object",
+          "example": "{ \"LabelView\" : \"side90\",\n\"paramA\" : \"90\"}",
+          "description": "key-value system to store additional information that can be used to query data",
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
+        "publisher": {
+          "type": "string",
+          "format": "uri"
+        },
+        "raw_data": {
+          "type": "array",
+          "description": "list of repetition values",
+          "items": {
+            "type": "object"
+          }
+        },
+        "issued": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "modified": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
@@ -26983,6 +27138,9 @@
         "string": {
           "type": "string"
         },
+        "wellFormedXML": {
+          "type": "boolean"
+        },
         "datatype": {
           "$ref": "#/definitions/RDFDatatype"
         },
@@ -26991,9 +27149,6 @@
         },
         "lexicalForm": {
           "type": "string"
-        },
-        "wellFormedXML": {
-          "type": "boolean"
         },
         "resource": {
           "type": "boolean"
@@ -27362,9 +27517,6 @@
     "Statement": {
       "type": "object",
       "properties": {
-        "subject": {
-          "$ref": "#/definitions/Resource"
-        },
         "boolean": {
           "type": "boolean"
         },
@@ -27407,14 +27559,17 @@
         "string": {
           "type": "string"
         },
+        "literal": {
+          "$ref": "#/definitions/Literal"
+        },
         "list": {
           "$ref": "#/definitions/RDFList"
         },
         "model": {
           "$ref": "#/definitions/Model"
         },
-        "literal": {
-          "$ref": "#/definitions/Literal"
+        "subject": {
+          "$ref": "#/definitions/Resource"
         },
         "bag": {
           "$ref": "#/definitions/Bag"
@@ -27435,529 +27590,6 @@
     },
     "TransactionHandler": {
       "type": "object"
-    },
-    "DataConfidenceDTO": {
-      "type": "object",
-      "properties": {
-        "confidence": {
-          "type": "number",
-          "format": "float"
-        }
-      }
-    },
-    "DataComputedGetDTO": {
-      "type": "object",
-      "required": [
-        "date",
-        "value"
-      ],
-      "properties": {
-        "date": {
-          "type": "string",
-          "format": "date-time",
-          "example": "2020-08-21T00:00:00+01:00",
-          "description": "date or datetime"
-        },
-        "value": {
-          "type": "object",
-          "example": "8.6",
-          "description": "can be decimal, integer, boolean, string or date"
-        }
-      }
-    },
-    "DataSerieGetDTO": {
-      "type": "object",
-      "properties": {
-        "provenance": {
-          "$ref": "#/definitions/DataSimpleProvenanceGetDTO"
-        },
-        "data": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/DataComputedGetDTO"
-          }
-        }
-      }
-    },
-    "DataSimpleProvenanceGetDTO": {
-      "type": "object",
-      "properties": {
-        "uri": {
-          "type": "string",
-          "format": "uri"
-        },
-        "rdf_type": {
-          "type": "string",
-          "format": "uri"
-        },
-        "name": {
-          "type": "string"
-        }
-      }
-    },
-    "DataVariableSeriesGetDTO": {
-      "type": "object",
-      "properties": {
-        "variable": {
-          "$ref": "#/definitions/VariableDetailsDTO"
-        },
-        "provenances": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/DataSimpleProvenanceGetDTO"
-          }
-        },
-        "devices": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/DeviceGetDTO"
-          }
-        },
-        "data_series": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/DataSerieGetDTO"
-          }
-        },
-        "calculated_series": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/DataSerieGetDTO"
-          }
-        },
-        "last_data_stored": {
-          "$ref": "#/definitions/DataComputedGetDTO"
-        }
-      }
-    },
-    "DeviceGetDTO": {
-      "type": "object",
-      "required": [
-        "name"
-      ],
-      "properties": {
-        "uri": {
-          "type": "string",
-          "format": "uri"
-        },
-        "rdf_type": {
-          "type": "string",
-          "format": "uri",
-          "example": "http://www.opensilex.org/vocabulary/oeso#SensingDevice",
-          "description": "rdfType URI"
-        },
-        "rdf_type_name": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string",
-          "example": "Sensor_01",
-          "description": "Device name"
-        },
-        "brand": {
-          "type": "string",
-          "example": "Campbell",
-          "description": "Device brand"
-        },
-        "constructor_model": {
-          "type": "string",
-          "example": "CS655",
-          "description": "Device model"
-        },
-        "serial_number": {
-          "type": "string",
-          "example": "123456",
-          "description": "Device serial number"
-        },
-        "person_in_charge": {
-          "type": "string",
-          "format": "uri",
-          "example": "http://opensilex.dev/person#Firstname.Lastname",
-          "description": "Person in charge"
-        },
-        "start_up": {
-          "type": "string",
-          "format": "date",
-          "example": "2018-12-12",
-          "description": "Device date of start-up"
-        },
-        "removal": {
-          "type": "string",
-          "format": "date",
-          "example": "2020-12-12",
-          "description": "Device date of removal"
-        },
-        "relations": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/RDFObjectRelationDTO"
-          }
-        },
-        "description": {
-          "type": "string",
-          "example": "description",
-          "description": "comment"
-        },
-        "publisher": {
-          "$ref": "#/definitions/UserGetDTO"
-        },
-        "publication_date": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "last_updated_date": {
-          "type": "string",
-          "format": "date-time"
-        }
-      }
-    },
-    "InterestEntityGetDTO": {
-      "type": "object",
-      "properties": {
-        "uri": {
-          "type": "string",
-          "format": "uri",
-          "example": "http://opensilex.dev/set/variables/entity_of_interest/Plot"
-        },
-        "name": {
-          "type": "string",
-          "example": "Plot"
-        }
-      }
-    },
-    "SpeciesDTO": {
-      "type": "object",
-      "properties": {
-        "uri": {
-          "type": "string",
-          "format": "uri"
-        },
-        "name": {
-          "type": "string"
-        }
-      }
-    },
-    "UnitDetailsDTO": {
-      "type": "object",
-      "properties": {
-        "uri": {
-          "type": "string",
-          "format": "uri",
-          "example": "http://opensilex.dev/set/variables/unit/Centimeter"
-        },
-        "name": {
-          "type": "string",
-          "example": "Centimeter"
-        },
-        "description": {
-          "type": "string",
-          "example": "A common unit for describing a length"
-        },
-        "symbol": {
-          "type": "string",
-          "example": "cm"
-        },
-        "alternative_symbol": {
-          "type": "string",
-          "example": "cm"
-        },
-        "exact_match": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "close_match": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "broad_match": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "narrow_match": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "publisher": {
-          "$ref": "#/definitions/UserGetDTO"
-        },
-        "publication_date": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "last_updated_date": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "from_shared_resource_instance": {
-          "$ref": "#/definitions/SharedResourceInstanceDTO"
-        }
-      }
-    },
-    "VariableDetailsDTO": {
-      "type": "object",
-      "properties": {
-        "uri": {
-          "type": "string",
-          "format": "uri",
-          "example": "http://opensilex.dev/set/variables/Plant_Height"
-        },
-        "name": {
-          "type": "string",
-          "example": "Plant_Height"
-        },
-        "alternative_name": {
-          "type": "string",
-          "example": "Plant_Height_Estimation_Cm"
-        },
-        "description": {
-          "type": "string",
-          "example": "Describe the height of a plant."
-        },
-        "entity": {
-          "$ref": "#/definitions/EntityGetDTO"
-        },
-        "entity_of_interest": {
-          "$ref": "#/definitions/InterestEntityGetDTO"
-        },
-        "characteristic": {
-          "$ref": "#/definitions/CharacteristicGetDTO"
-        },
-        "trait": {
-          "type": "string",
-          "format": "uri",
-          "example": "http://purl.obolibrary.org/obo/TO_0002644"
-        },
-        "trait_name": {
-          "type": "string",
-          "example": "dry matter digestibility"
-        },
-        "method": {
-          "$ref": "#/definitions/MethodGetDTO"
-        },
-        "unit": {
-          "$ref": "#/definitions/UnitDetailsDTO"
-        },
-        "species": {
-          "type": "array",
-          "example": "http://www.phenome-fppn.fr/id/species/zeamays",
-          "items": {
-            "$ref": "#/definitions/SpeciesDTO"
-          }
-        },
-        "time_interval": {
-          "type": "string",
-          "example": "minutes"
-        },
-        "sampling_interval": {
-          "type": "string",
-          "example": "minutes"
-        },
-        "datatype": {
-          "type": "string",
-          "format": "uri",
-          "example": "http://www.w3.org/2001/XMLSchema#integer"
-        },
-        "exact_match": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "close_match": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "broad_match": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "narrow_match": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "publisher": {
-          "$ref": "#/definitions/UserGetDTO"
-        },
-        "publication_date": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "last_updated_date": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "from_shared_resource_instance": {
-          "$ref": "#/definitions/SharedResourceInstanceDTO"
-        }
-      }
-    },
-    "DataCreationDTO": {
-      "type": "object",
-      "required": [
-        "date",
-        "provenance",
-        "value",
-        "variable"
-      ],
-      "properties": {
-        "uri": {
-          "type": "string",
-          "format": "uri",
-          "example": "http://opensilex.dev/id/data/1598857852858"
-        },
-        "date": {
-          "type": "string",
-          "example": "2020-08-21T00:00:00+01:00",
-          "description": "date or datetime"
-        },
-        "timezone": {
-          "type": "string",
-          "description": "to specify if the offset is not in the date and if the timezone is different from the default one"
-        },
-        "target": {
-          "type": "string",
-          "format": "uri",
-          "example": "http://plot01",
-          "description": "target URI on which the data have been collected (e.g. a scientific object)"
-        },
-        "variable": {
-          "type": "string",
-          "format": "uri",
-          "example": "http://opensilex.dev/variable#variable.2020-08-21_11-21-23entity6_method6_quality6_unit6",
-          "description": "variable URI"
-        },
-        "value": {
-          "type": "object",
-          "example": "8.6",
-          "description": "can be decimal, integer, boolean, string or date"
-        },
-        "confidence": {
-          "type": "number",
-          "format": "float",
-          "example": 0.5,
-          "description": "confidence index",
-          "minimum": 0,
-          "maximum": 1
-        },
-        "provenance": {
-          "$ref": "#/definitions/DataProvenanceModel"
-        },
-        "metadata": {
-          "type": "object",
-          "example": "{ \"LabelView\" : \"side90\",\n\"paramA\" : \"90\"}",
-          "description": "key-value system to store additional information that can be used to query data",
-          "additionalProperties": {
-            "type": "object"
-          }
-        },
-        "raw_data": {
-          "type": "array",
-          "description": "list of repetition values",
-          "items": {
-            "type": "object"
-          }
-        }
-      }
-    },
-    "DataGetSearchDTO": {
-      "type": "object",
-      "required": [
-        "date",
-        "provenance",
-        "uri",
-        "value",
-        "variable"
-      ],
-      "properties": {
-        "uri": {
-          "type": "string",
-          "format": "uri",
-          "example": "http://opensilex.dev/id/data/1598857852858",
-          "description": "data URI"
-        },
-        "date": {
-          "type": "string",
-          "example": "2020-08-21T00:00:00+01:00",
-          "description": "date or datetime"
-        },
-        "target": {
-          "type": "string",
-          "format": "uri",
-          "example": "http://plot01",
-          "description": "target URI on which the data have been collected (e.g. a scientific object)"
-        },
-        "variable": {
-          "type": "string",
-          "format": "uri",
-          "example": "http://opensilex.dev/variable#variable.2020-08-21_11-21-23entity6_method6_quality6_unit6",
-          "description": "variable URI"
-        },
-        "value": {
-          "type": "object",
-          "example": "8.6",
-          "description": "can be decimal, integer, boolean, string or date"
-        },
-        "confidence": {
-          "type": "number",
-          "format": "float",
-          "example": 0.5,
-          "description": "confidence index",
-          "minimum": 0,
-          "maximum": 1
-        },
-        "provenance": {
-          "$ref": "#/definitions/DataProvenanceModel"
-        },
-        "metadata": {
-          "type": "object",
-          "example": "{ \"LabelView\" : \"side90\",\n\"paramA\" : \"90\"}",
-          "description": "key-value system to store additional information that can be used to query data",
-          "additionalProperties": {
-            "type": "object"
-          }
-        },
-        "publisher": {
-          "type": "string",
-          "format": "uri"
-        },
-        "raw_data": {
-          "type": "array",
-          "description": "list of repetition values",
-          "items": {
-            "type": "object"
-          }
-        },
-        "issued": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "modified": {
-          "type": "string",
-          "format": "date-time"
-        }
-      }
     },
     "DataSearchDTO": {
       "type": "object",
@@ -28146,6 +27778,85 @@
         "modified": {
           "type": "string",
           "format": "date-time"
+        }
+      }
+    },
+    "NamedResourceDTO": {
+      "type": "object",
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "name": {
+          "type": "string"
+        },
+        "rdf_type": {
+          "type": "string",
+          "format": "uri"
+        },
+        "rdf_type_name": {
+          "type": "string"
+        },
+        "publication_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_updated_date": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "UnitGetDTO": {
+      "type": "object",
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "uri",
+          "example": "http://opensilex.dev/set/variables/unit/Centimeter"
+        },
+        "name": {
+          "type": "string",
+          "example": "Centimeter"
+        }
+      }
+    },
+    "VariableGetDTO": {
+      "type": "object",
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "uri",
+          "example": "http://opensilex.dev/set/variables/Plant_Height"
+        },
+        "name": {
+          "type": "string",
+          "example": "Plant_Height"
+        },
+        "entity": {
+          "$ref": "#/definitions/EntityGetDTO"
+        },
+        "entity_of_interest": {
+          "$ref": "#/definitions/NamedResourceDTO"
+        },
+        "characteristic": {
+          "$ref": "#/definitions/CharacteristicGetDTO"
+        },
+        "method": {
+          "$ref": "#/definitions/MethodGetDTO"
+        },
+        "unit": {
+          "$ref": "#/definitions/UnitGetDTO"
+        },
+        "onLocal": {
+          "type": "boolean"
+        },
+        "sharedResourceInstance": {
+          "$ref": "#/definitions/SharedResourceInstanceDTO"
+        },
+        "alternative_name": {
+          "type": "string"
         }
       }
     },
@@ -33678,44 +33389,6 @@
         }
       }
     },
-    "VariablesGroupCreationDTO": {
-      "type": "object",
-      "required": [
-        "name"
-      ],
-      "properties": {
-        "uri": {
-          "type": "string",
-          "format": "uri"
-        },
-        "name": {
-          "type": "string",
-          "example": "group of plants"
-        },
-        "description": {
-          "type": "string",
-          "example": "Group where we can find all plant related variables"
-        },
-        "variables": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "publisher": {
-          "$ref": "#/definitions/UserGetDTO"
-        },
-        "publication_date": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "last_updated_date": {
-          "type": "string",
-          "format": "date-time"
-        }
-      }
-    },
     "NamedResourceDTOVariableModel": {
       "type": "object",
       "properties": {
@@ -33785,6 +33458,44 @@
       "required": [
         "name",
         "uri"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "name": {
+          "type": "string",
+          "example": "group of plants"
+        },
+        "description": {
+          "type": "string",
+          "example": "Group where we can find all plant related variables"
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "publisher": {
+          "$ref": "#/definitions/UserGetDTO"
+        },
+        "publication_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_updated_date": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "VariablesGroupCreationDTO": {
+      "type": "object",
+      "required": [
+        "name"
       ],
       "properties": {
         "uri": {
@@ -34797,55 +34508,6 @@
         }
       }
     },
-    "FontConfigDTO": {
-      "type": "object",
-      "properties": {
-        "family": {
-          "type": "string"
-        },
-        "style": {
-          "type": "string"
-        },
-        "weight": {
-          "type": "string"
-        },
-        "url": {
-          "type": "string"
-        },
-        "src": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "ThemeConfigDTO": {
-      "type": "object",
-      "properties": {
-        "hasStyle": {
-          "type": "boolean"
-        },
-        "fonts": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/FontConfigDTO"
-          }
-        },
-        "iconClassesRDF": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "componentOverrides": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        }
-      }
-    },
     "MenuItemDTO": {
       "type": "object",
       "required": [
@@ -34894,6 +34556,55 @@
         "userIsAnonymous": {
           "type": "boolean",
           "description": "User is anonymous"
+        }
+      }
+    },
+    "FontConfigDTO": {
+      "type": "object",
+      "properties": {
+        "family": {
+          "type": "string"
+        },
+        "style": {
+          "type": "string"
+        },
+        "weight": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "src": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ThemeConfigDTO": {
+      "type": "object",
+      "properties": {
+        "hasStyle": {
+          "type": "boolean"
+        },
+        "fonts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FontConfigDTO"
+          }
+        },
+        "iconClassesRDF": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "componentOverrides": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
