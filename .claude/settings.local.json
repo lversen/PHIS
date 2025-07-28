@@ -9,7 +9,16 @@
       "Bash(powershell:*)",
       "Bash(ssh:*)",
       "Bash(curl:*)",
-      "WebFetch(domain:98.71.237.204)"
+      "WebFetch(domain:98.71.237.204)",
+      "Bash(python:*)",
+      "Bash(npm install:*)",
+      "Bash(npx @openapitools/openapi-generator-cli:*)",
+      "Bash(npx swagger-codegen-cli generate:*)",
+      "Bash(java:*)",
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(grep:*)",
+      "Bash(pip install:*)"
     ],
     "deny": []
   }
