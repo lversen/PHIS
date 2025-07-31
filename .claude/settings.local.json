@@ -19,7 +19,8 @@
       "Bash(mv:*)",
       "Bash(grep:*)",
       "Bash(pip install:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(git mv:*)"
     ],
     "deny": []
   }
